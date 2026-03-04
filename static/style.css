@@ -365,7 +365,8 @@ select:focus {
   position: absolute;
   width: 260px;
   height: 2px;
-  background: linear-gradient(90deg, rgba(250, 252, 255, 0.98), rgba(172, 219, 255, 0.5), transparent);
+  /* Head leads toward bottom-left, tail trails toward top-right. */
+  background: linear-gradient(270deg, rgba(250, 252, 255, 0.98), rgba(172, 219, 255, 0.5), transparent);
   transform: rotate(154deg);
   filter: drop-shadow(0 0 10px rgba(187, 226, 255, 0.85));
   opacity: 0;
