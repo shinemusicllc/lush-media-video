@@ -290,12 +290,17 @@ select:focus {
   padding: 24px;
   display: grid;
   gap: 18px;
-  grid-template-columns: minmax(0, 420px);
+  grid-template-columns: minmax(0, 560px);
   justify-content: center;
   justify-items: center;
   align-items: center;
   position: relative;
   z-index: 2;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 560px;
 }
 
 .login-hero,
