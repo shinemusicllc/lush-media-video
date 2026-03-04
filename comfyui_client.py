@@ -173,9 +173,10 @@ async def listen_progress(
     ws_url = server_url.replace("http://", "ws://").replace("https://", "wss://")
     ws_url = f"{ws_url}/ws?clientId={client_id}"
     if timeout_s is None:
-        # Max idle time waiting for the next WS frame.
-        # Long renders may have sparse WS updates near the end.
-        timeout_s = int(os.environ.get("COMFYUI_WS_IDLE_TIMEOUT_S", "1800"))
+        # Keep a long overall timeout for heavy workflows.
+        timeout_s = int(os.environ.get("COMFYUI_WS_OVERALL_TIMEOUT_S", "1800"))
+    idle_check_s = int(os.environ.get("COMFYUI_WS_IDLE_CHECK_S", "20"))
+    deadline = asyncio.get_running_loop().time() + timeout_s
 
     # Tổng số node trong workflow để tính progress phụ
     TOTAL_NODES = 16  # 16 nodes trong FULLHD_6S_Loop_API.json
@@ -193,20 +194,23 @@ async def listen_progress(
         ) as ws:
             while True:
                 try:
-                    msg = await asyncio.wait_for(ws.recv(), timeout=timeout_s)
+                    msg = await asyncio.wait_for(ws.recv(), timeout=idle_check_s)
                 except asyncio.TimeoutError:
-                    # Timeout — thử check history trước khi báo lỗi
-                    logger.warning(f"WS timeout {timeout_s}s, checking history...")
+                    # WS quiet for a short interval: check history first.
                     try:
                         hist = await get_history(server_url, prompt_id)
                         if prompt_id in hist:
                             status = hist[prompt_id].get("status", {})
                             if status.get("completed", False):
                                 logger.info("Job completed (detected via history)")
+                                if on_progress:
+                                    await on_progress(100)
                                 return {"status": "done"}
                     except Exception:
                         pass
-                    raise TimeoutError(f"Job timeout sau {timeout_s}s")
+                    if asyncio.get_running_loop().time() >= deadline:
+                        raise TimeoutError(f"Job timeout sau {timeout_s}s")
+                    continue
 
                 if isinstance(msg, bytes):
                     # Binary data = preview hoặc video frame

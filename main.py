@@ -23,7 +23,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, StreamingResponse
 
 import config
 import database as db
@@ -322,9 +322,23 @@ async def download_video(
     if not server_url:
         raise HTTPException(status_code=500, detail="Server không tìm thấy")
 
-    video_bytes = await comfyui_client.download_output(server_url, output_info)
-    return Response(
-        content=video_bytes,
+    params = {
+        "filename": output_info["filename"],
+        "subfolder": output_info.get("subfolder", ""),
+        "type": output_info.get("type", "output"),
+    }
+    timeout_s = int(os.environ.get("COMFYUI_DOWNLOAD_TIMEOUT_S", "900"))
+    headers = comfyui_client._get_tunnel_headers()
+
+    async def video_stream():
+        async with httpx.AsyncClient(timeout=timeout_s, headers=headers) as client:
+            async with client.stream("GET", f"{server_url}/view", params=params) as r:
+                r.raise_for_status()
+                async for chunk in r.aiter_bytes():
+                    yield chunk
+
+    return StreamingResponse(
+        video_stream(),
         media_type="video/mp4",
         headers={
             "Content-Disposition": f'attachment; filename="{output_info["filename"]}"'
