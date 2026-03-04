@@ -12,8 +12,9 @@ const state = {
     jobs: [],
     ws: null,
     selectedFile: null,
+    selectedWorkflowFile: null,
     currentPage: 1,
-    filters: { dateFrom: '', dateTo: '', status: '' },
+    filters: { search: '', dateFrom: '', dateTo: '', status: '' },
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -31,6 +32,11 @@ const dropPreview = $('#drop-zone-preview');
 const previewImg = $('#preview-img');
 const removeBtn = $('#remove-img');
 const submitBtn = $('#submit-btn');
+const jobNameInput = $('#job-name-input');
+const workflowInput = $('#workflow-input');
+const workflowChooseBtn = $('#workflow-choose-btn');
+const workflowClearBtn = $('#workflow-clear-btn');
+const workflowChooseLabel = $('#workflow-choose-label');
 
 const jobsList = $('#jobs-list');
 const jobsEmpty = $('#jobs-empty');
@@ -53,6 +59,7 @@ const usersList = $('#users-list');
 const filterDateFrom = $('#filter-date-from');
 const filterDateTo = $('#filter-date-to');
 const filterStatus = $('#filter-status');
+const filterSearch = $('#filter-search');
 const filterClear = $('#filter-clear');
 const pagination = $('#pagination');
 const pagePrev = $('#page-prev');
@@ -222,6 +229,21 @@ loginForm?.addEventListener('submit', async (e) => {
 
 logoutBtn?.addEventListener('click', logout);
 
+function updateWorkflowUI() {
+    if (state.selectedWorkflowFile) {
+        const fullName = state.selectedWorkflowFile.name;
+        if (workflowChooseLabel) workflowChooseLabel.textContent = fullName;
+        if (workflowChooseBtn) workflowChooseBtn.title = `Workflow đang chọn: ${fullName}`;
+        workflowChooseBtn?.classList.add('workflow-selected');
+        if (workflowClearBtn) workflowClearBtn.hidden = false;
+    } else {
+        if (workflowChooseLabel) workflowChooseLabel.textContent = 'Chọn workflow';
+        if (workflowChooseBtn) workflowChooseBtn.title = 'Chọn workflow .json';
+        workflowChooseBtn?.classList.remove('workflow-selected');
+        if (workflowClearBtn) workflowClearBtn.hidden = true;
+    }
+}
+
 // Upload
 if (dropZone && fileInput && removeBtn && submitBtn) {
     dropZone.addEventListener('click', () => fileInput.click());
@@ -246,6 +268,27 @@ if (dropZone && fileInput && removeBtn && submitBtn) {
         if (fileInput.files.length > 0) selectFile(fileInput.files[0]);
     });
 
+    workflowChooseBtn?.addEventListener('click', () => workflowInput?.click());
+
+    workflowInput?.addEventListener('change', () => {
+        if (workflowInput.files.length > 0) {
+            const picked = workflowInput.files[0];
+            if (!picked.name.toLowerCase().endsWith('.json')) {
+                alert('Workflow phải là file .json');
+                workflowInput.value = '';
+                return;
+            }
+            state.selectedWorkflowFile = picked;
+            updateWorkflowUI();
+        }
+    });
+
+    workflowClearBtn?.addEventListener('click', () => {
+        state.selectedWorkflowFile = null;
+        if (workflowInput) workflowInput.value = '';
+        updateWorkflowUI();
+    });
+
     removeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         clearFile();
@@ -261,6 +304,11 @@ if (dropZone && fileInput && removeBtn && submitBtn) {
         try {
             const formData = new FormData();
             formData.append('file', state.selectedFile);
+            const jobName = jobNameInput?.value.trim() || '';
+            if (jobName) formData.append('job_name', jobName);
+            if (state.selectedWorkflowFile) {
+                formData.append('workflow_file', state.selectedWorkflowFile);
+            }
 
             const res = await api('/api/jobs', { method: 'POST', body: formData });
             if (!res.ok) {
@@ -269,13 +317,17 @@ if (dropZone && fileInput && removeBtn && submitBtn) {
             }
 
             clearFile();
+            if (jobNameInput) jobNameInput.value = '';
         } catch (err) {
             alert(`Lỗi: ${err.message}`);
         } finally {
             submitBtn.querySelector('span:last-of-type').textContent = 'Tạo video';
             submitBtn.querySelector('.spinner').style.display = 'none';
+            submitBtn.disabled = !state.selectedFile;
         }
     });
+
+    updateWorkflowUI();
 }
 
 function selectFile(file) {
@@ -330,6 +382,11 @@ function getFilteredJobs() {
     let jobs = [...state.jobs];
     jobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
+    if (state.filters.search) {
+        const q = state.filters.search.toLowerCase();
+        jobs = jobs.filter((j) => getJobName(j).toLowerCase().includes(q));
+    }
+
     if (state.filters.dateFrom) {
         const from = new Date(state.filters.dateFrom);
         from.setHours(0, 0, 0, 0);
@@ -348,6 +405,12 @@ function getFilteredJobs() {
 
     return jobs;
 }
+
+filterSearch?.addEventListener('input', () => {
+    state.filters.search = filterSearch.value.trim();
+    state.currentPage = 1;
+    renderJobs();
+});
 
 filterDateFrom?.addEventListener('change', () => {
     state.filters.dateFrom = filterDateFrom.value;
@@ -368,7 +431,8 @@ filterStatus?.addEventListener('change', () => {
 });
 
 filterClear?.addEventListener('click', () => {
-    state.filters = { dateFrom: '', dateTo: '', status: '' };
+    state.filters = { search: '', dateFrom: '', dateTo: '', status: '' };
+    if (filterSearch) filterSearch.value = '';
     filterDateFrom.value = '';
     filterDateTo.value = '';
     filterStatus.value = '';
@@ -507,13 +571,19 @@ function getJobHTML(job) {
     const shortId = job.id.substring(0, 8);
     const time = formatTime(job.created_at);
     const showUser = state.role === 'admin' ? `<span class="job-user">${escapeHTML(job.username)}</span>` : '';
+    const title = escapeHTML(getJobName(job, shortId));
+    const workflowBadge = job.workflow_name
+        ? `<span class="job-workflow" title="${escapeHTML(job.workflow_name)}">${escapeHTML(job.workflow_name)}</span>`
+        : '';
 
     return `
         <img class="job-thumb" src="/api/jobs/${job.id}/thumbnail" alt="" loading="lazy" onerror="this.style.display='none'">
         <div class="job-info">
+            <p class="job-title" title="${title}">${title}</p>
             <div class="job-info-top">
                 <span class="job-id">#${shortId}</span>
                 <span class="job-server">${escapeHTML(job.server_name || 'N/A')}</span>
+                ${workflowBadge}
                 ${showUser}
                 <span class="status-badge ${st.cls}">${st.label}</span>
             </div>
@@ -543,6 +613,9 @@ async function deleteJob(jobId) {
 window.deleteJob = deleteJob;
 
 function downloadVideo(jobId) {
+    const job = state.jobs.find((j) => j.id === jobId);
+    const baseName = sanitizeFilename(getJobName(job, jobId.substring(0, 8)));
+
     fetch(`/api/jobs/${jobId}/video?token=${encodeURIComponent(state.token)}`)
         .then((res) => {
             if (!res.ok) throw new Error('Tải video thất bại');
@@ -552,7 +625,7 @@ function downloadVideo(jobId) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `video_${jobId.substring(0, 8)}.mp4`;
+            a.download = `${baseName}.mp4`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -714,6 +787,22 @@ async function loadUsers() {
     } catch (err) {
         console.error('loadUsers error:', err);
     }
+}
+
+function sanitizeFilename(str) {
+    return String(str || 'job')
+        .trim()
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .slice(0, 120) || 'job';
+}
+
+function getJobName(job, fallback = '') {
+    if (!job) return fallback ? `job_${fallback}` : 'job';
+    const raw = job.job_name || job.video_name || '';
+    if (raw) return String(raw);
+    return fallback ? `job_${fallback}` : 'job';
 }
 
 function escapeHTML(str) {

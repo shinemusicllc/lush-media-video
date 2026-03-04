@@ -4,6 +4,12 @@ import aiosqlite
 from config import DB_PATH
 
 
+async def _column_exists(conn: aiosqlite.Connection, table: str, column: str) -> bool:
+    async with conn.execute(f"PRAGMA table_info({table})") as cur:
+        rows = await cur.fetchall()
+    return any(r[1] == column for r in rows)
+
+
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as conn:
         await conn.execute("""
@@ -26,12 +32,28 @@ async def init_db():
                 progress      INTEGER DEFAULT 0,
                 error_msg     TEXT,
                 input_image   TEXT    NOT NULL,
+                job_name      TEXT,
+                video_name    TEXT,
+                workflow_name TEXT,
                 output_info   TEXT,
                 created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 completed_at  TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )
         """)
+
+        # Backward-compatible migration for existing DBs.
+        if not await _column_exists(conn, "jobs", "job_name"):
+            await conn.execute("ALTER TABLE jobs ADD COLUMN job_name TEXT")
+        if not await _column_exists(conn, "jobs", "video_name"):
+            await conn.execute("ALTER TABLE jobs ADD COLUMN video_name TEXT")
+        if not await _column_exists(conn, "jobs", "workflow_name"):
+            await conn.execute("ALTER TABLE jobs ADD COLUMN workflow_name TEXT")
+
+        # Keep old rows searchable by the new job_name field.
+        await conn.execute(
+            "UPDATE jobs SET job_name = COALESCE(job_name, video_name) WHERE job_name IS NULL"
+        )
         await conn.commit()
 
 
@@ -70,11 +92,31 @@ async def list_users() -> list:
 # ── Jobs ───────────────────────────────────────────────────
 
 
-async def create_job(job_id: str, user_id: int, username: str, input_image: str):
+async def create_job(
+    job_id: str,
+    user_id: int,
+    username: str,
+    input_image: str,
+    job_name: str | None = None,
+    workflow_name: str | None = None,
+):
     async with aiosqlite.connect(DB_PATH) as conn:
         await conn.execute(
-            "INSERT INTO jobs (id, user_id, username, input_image) VALUES (?, ?, ?, ?)",
-            (job_id, user_id, username, input_image),
+            """
+            INSERT INTO jobs (
+                id, user_id, username, input_image, job_name, video_name, workflow_name
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                job_id,
+                user_id,
+                username,
+                input_image,
+                job_name,
+                job_name,
+                workflow_name,
+            ),
         )
         await conn.commit()
 

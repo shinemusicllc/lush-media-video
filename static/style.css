@@ -934,6 +934,92 @@ select:focus {
   justify-content: center;
 }
 
+.compact-group {
+  margin-bottom: 12px;
+}
+
+.upload-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: nowrap;
+}
+
+.upload-header .section-title {
+  margin-bottom: 0;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.upload-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+  min-width: 0;
+}
+
+#workflow-choose-btn {
+  flex-shrink: 0;
+  max-width: 148px;
+  padding: 0 10px;
+  gap: 6px;
+}
+
+#workflow-choose-btn .material-symbols-rounded {
+  font-size: 17px;
+}
+
+#workflow-choose-btn.workflow-selected {
+  border-color: rgba(29, 185, 84, 0.45);
+  background: rgba(29, 185, 84, 0.14);
+  color: #c4f3d7;
+  max-width: 122px;
+}
+
+.workflow-choose-text {
+  display: block;
+  max-width: 82px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#workflow-choose-btn.workflow-selected .workflow-choose-text {
+  max-width: 58px;
+}
+
+#workflow-clear-btn {
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+}
+
+#workflow-clear-btn .material-symbols-rounded {
+  font-size: 16px;
+}
+
+.creator-input {
+  min-height: 34px !important;
+  border-radius: 10px !important;
+  font-size: 12px;
+  background: #0f141b !important;
+  color: #f2f5fb !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  -webkit-text-fill-color: #f2f5fb;
+}
+
+.creator-input:focus {
+  background: #151c25 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
 .queue-card {
   min-height: 0;
   height: 100%;
@@ -961,7 +1047,7 @@ select:focus {
   margin-left: auto;
   width: min(100%, 760px);
   display: grid;
-  grid-template-columns: repeat(3, minmax(108px, 1fr)) auto;
+  grid-template-columns: minmax(170px, 1.6fr) repeat(3, minmax(108px, 1fr)) auto;
   gap: 6px;
   align-items: end;
 }
@@ -988,7 +1074,8 @@ select:focus {
 
 #filter-date-from,
 #filter-date-to,
-#filter-status {
+#filter-status,
+#filter-search {
   min-height: 34px;
   border-radius: 10px !important;
   font-size: 12px;
@@ -1090,6 +1177,16 @@ select:focus {
   min-width: 0;
 }
 
+.job-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #f4f7fc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .job-info-top {
   display: flex;
   align-items: center;
@@ -1099,7 +1196,8 @@ select:focus {
 
 .job-id,
 .job-server,
-.job-user {
+.job-user,
+.job-workflow {
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1110,6 +1208,10 @@ select:focus {
   color: #d5dcea;
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.04);
+}
+
+.job-workflow {
+  color: #ced8e9;
 }
 
 .job-time {
@@ -1433,6 +1535,31 @@ select:focus {
 
   .queue-filters {
     grid-template-columns: 1fr;
+  }
+
+  .upload-header {
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .upload-header-actions {
+    width: auto;
+  }
+
+  #workflow-choose-btn {
+    max-width: 126px;
+  }
+
+  #workflow-choose-btn.workflow-selected {
+    max-width: 102px;
+  }
+
+  .workflow-choose-text {
+    max-width: 64px;
+  }
+
+  #workflow-choose-btn.workflow-selected .workflow-choose-text {
+    max-width: 44px;
   }
 
   .job-item {

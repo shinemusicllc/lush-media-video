@@ -166,10 +166,22 @@
             <main class="main-layout">
                 <section class="upload-section">
                     <div class="panel section-card">
-                        <h2 class="section-title">
-                            <span class="material-symbols-rounded">upload_file</span>
-                            Tạo video mới
-                        </h2>
+                        <div class="upload-header">
+                            <h2 class="section-title">
+                                <span class="material-symbols-rounded">upload_file</span>
+                                Tạo video mới
+                            </h2>
+                            <input type="file" id="workflow-input" accept=".json,application/json" hidden>
+                            <div class="upload-header-actions">
+                                <button class="btn btn-ghost btn-sm" type="button" id="workflow-choose-btn" title="Chọn workflow .json">
+                                    <span class="material-symbols-rounded">upload_file</span>
+                                    <span id="workflow-choose-label" class="workflow-choose-text">Chọn workflow</span>
+                                </button>
+                                <button class="btn btn-ghost btn-sm" type="button" id="workflow-clear-btn" title="Xóa workflow đã chọn" aria-label="Xóa workflow" hidden>
+                                    <span class="material-symbols-rounded">close</span>
+                                </button>
+                            </div>
+                        </div>
 
                         <div id="drop-zone" class="drop-zone">
                             <input type="file" id="file-input" accept="image/*" hidden>
@@ -189,6 +201,17 @@
                             </div>
                         </div>
 
+                        <div class="input-group compact-group">
+                            <label for="job-name-input">Tên job</label>
+                            <input
+                                type="text"
+                                id="job-name-input"
+                                class="creator-input"
+                                maxlength="120"
+                                placeholder="VD: campaign_tet_01"
+                            >
+                        </div>
+
                         <button class="btn btn-accent btn-full btn-lg" id="submit-btn" disabled>
                             <span class="material-symbols-rounded">smart_display</span>
                             <span>Tạo video</span>
@@ -206,6 +229,10 @@
                             </h2>
 
                             <div class="queue-filters">
+                                <div class="filter-group filter-search">
+                                    <label for="filter-search">Tìm tên job</label>
+                                    <input type="text" id="filter-search" aria-label="Tìm tên job" placeholder="Tìm theo tên job">
+                                </div>
                                 <div class="filter-group">
                                     <label for="filter-date-from">Từ ngày</label>
                                     <input type="date" id="filter-date-from" aria-label="Từ ngày">

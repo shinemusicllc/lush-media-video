@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from fastapi import (
     FastAPI,
     File,
+    Form,
     UploadFile,
     Depends,
     HTTPException,
@@ -45,6 +46,14 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 app = FastAPI(title="ComfyUI Bot", version="1.0.0")
+
+
+def _resolve_job_name(job_row: dict) -> str:
+    name = (job_row.get("job_name") or "").strip()
+    if name:
+        return name
+    legacy = (job_row.get("video_name") or "").strip()
+    return legacy
 
 
 # ── Startup / Shutdown ──────────────────────────────────────
@@ -142,6 +151,9 @@ async def list_users(admin: dict = Depends(require_admin)):
 @app.post("/api/jobs")
 async def create_job(
     file: UploadFile = File(...),
+    job_name: str = Form(""),
+    video_name: str = Form(""),
+    workflow_file: UploadFile | None = File(None),
     user: dict = Depends(get_current_user),
 ):
     # Validate
@@ -158,6 +170,34 @@ async def create_job(
     with open(save_path, "wb") as f:
         f.write(content)
 
+    raw_job_name = (job_name or "").strip() or (video_name or "").strip()
+    clean_job_name = raw_job_name
+    if len(clean_job_name) > 120:
+        raise HTTPException(status_code=400, detail="Ten job toi da 120 ky tu")
+    if not clean_job_name:
+        original_stem = Path(file.filename or "").stem.strip()
+        clean_job_name = original_stem[:120] if original_stem else f"job_{job_id[:8]}"
+
+    workflow_data = None
+    workflow_name = Path(config.WORKFLOW_PATH).name
+    if workflow_file and workflow_file.filename:
+        if not workflow_file.filename.lower().endswith(".json"):
+            raise HTTPException(status_code=400, detail="Workflow phai la file .json")
+
+        raw_workflow = await workflow_file.read()
+        if len(raw_workflow) > 2 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Workflow JSON qua lon (toi da 2MB)")
+        try:
+            workflow_data = json.loads(raw_workflow.decode("utf-8-sig"))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Workflow JSON khong hop le: {e}")
+        if not isinstance(workflow_data, dict):
+            raise HTTPException(
+                status_code=400, detail="Workflow JSON phai la object o cap goc"
+            )
+
+        workflow_name = Path(workflow_file.filename).name
+
     # Submit vào load balancer
     await balancer.submit_job(
         job_id=job_id,
@@ -165,9 +205,18 @@ async def create_job(
         username=user["username"],
         image_path=save_path,
         image_filename=safe_filename,
+        job_name=clean_job_name,
+        workflow_name=workflow_name,
+        workflow_data=workflow_data,
     )
 
-    return {"job_id": job_id, "status": "queued"}
+    return {
+        "job_id": job_id,
+        "status": "queued",
+        "job_name": clean_job_name,
+        "video_name": clean_job_name,
+        "workflow_name": workflow_name,
+    }
 
 
 @app.get("/api/jobs")
@@ -194,6 +243,9 @@ async def list_jobs(user: dict = Depends(get_current_user)):
                 "progress": j.get("progress", 0),
                 "error_msg": j.get("error_msg"),
                 "input_image": j["input_image"],
+                "job_name": _resolve_job_name(j),
+                "video_name": _resolve_job_name(j),
+                "workflow_name": j.get("workflow_name"),
                 "created_at": j["created_at"],
                 "completed_at": j.get("completed_at"),
                 "has_output": j.get("output_info") is not None,

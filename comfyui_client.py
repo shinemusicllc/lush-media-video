@@ -68,32 +68,66 @@ async def upload_image(server_url: str, image_path: str, filename: str) -> str:
 # ── Workflow builder ────────────────────────────────────────
 
 
-def build_prompt(image_name: str, seed: int | None = None) -> dict:
+def build_prompt(
+    image_name: str,
+    seed: int | None = None,
+    workflow_data: dict | None = None,
+) -> dict:
     """
     Load workflow JSON và patch input nodes.
     Chỉ thay đổi: image, seed, filename_prefix.
     Resolution/frames/prompt giữ cố định.
     """
-    with open(WORKFLOW_PATH, "r", encoding="utf-8") as f:
-        prompt = json.load(f)
+    if workflow_data is not None:
+        # Deep-copy to avoid mutating payload shared across jobs.
+        prompt = json.loads(json.dumps(workflow_data))
+    else:
+        with open(WORKFLOW_PATH, "r", encoding="utf-8") as f:
+            prompt = json.load(f)
 
-    # ── Ảnh input (node 146 - LoadImage)
-    prompt["146"]["inputs"]["image"] = image_name
+    if not isinstance(prompt, dict) or not prompt:
+        raise ValueError("Workflow JSON khong hop le")
 
-    # ── Resolution + frames (node 169)
-    prompt["169"]["inputs"]["width"] = WORKFLOW_DEFAULTS["width"]
-    prompt["169"]["inputs"]["height"] = WORKFLOW_DEFAULTS["height"]
-    prompt["169"]["inputs"]["length"] = WORKFLOW_DEFAULTS["length"]
+    patched_image = False
+    seed_nodes = []
+    filename_prefix_set = False
 
-    # ── Random seed (node 57 + 58 - KSamplerAdvanced)
+    for node in prompt.values():
+        if not isinstance(node, dict):
+            continue
+        inputs = node.get("inputs")
+        if not isinstance(inputs, dict):
+            continue
+
+        if not patched_image and "image" in inputs and isinstance(inputs["image"], str):
+            inputs["image"] = image_name
+            patched_image = True
+
+        if "width" in inputs:
+            inputs["width"] = WORKFLOW_DEFAULTS["width"]
+        if "height" in inputs:
+            inputs["height"] = WORKFLOW_DEFAULTS["height"]
+        if "length" in inputs:
+            inputs["length"] = WORKFLOW_DEFAULTS["length"]
+
+        if "noise_seed" in inputs:
+            seed_nodes.append(inputs)
+
+        if (not filename_prefix_set and "filename_prefix" in inputs
+                and isinstance(inputs["filename_prefix"], str)):
+            date_prefix = datetime.now().strftime("%Y-%m-%d")
+            inputs["filename_prefix"] = f"{date_prefix}\\wan22"
+            filename_prefix_set = True
+
+    if not patched_image:
+        raise ValueError("Workflow JSON khong tim thay node input image")
+
+    # Apply sequential seeds for all sampler nodes found in this workflow.
     if seed is None:
         seed = random.randint(0, 2**53)
-    prompt["57"]["inputs"]["noise_seed"] = seed
-    prompt["58"]["inputs"]["noise_seed"] = seed + 1
 
-    # ── Output filename prefix
-    date_prefix = datetime.now().strftime("%Y-%m-%d")
-    prompt["82"]["inputs"]["filename_prefix"] = f"{date_prefix}\\wan22"
+    for idx, node_inputs in enumerate(seed_nodes):
+        node_inputs["noise_seed"] = seed + idx
 
     return prompt
 

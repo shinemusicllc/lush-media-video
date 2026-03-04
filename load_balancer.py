@@ -83,13 +83,23 @@ class LoadBalancer:
         username: str,
         image_path: str,
         image_filename: str,
+        job_name: str | None = None,
+        workflow_name: str | None = None,
+        workflow_data: dict | None = None,
     ):
         """Submit job mới — round-robin phân bổ giữa các server."""
         async with self._lock:
             server = self.servers[self._next_index % len(self.servers)]
             self._next_index = (self._next_index + 1) % len(self.servers)
 
-        await db.create_job(job_id, user_id, username, image_filename)
+        await db.create_job(
+            job_id,
+            user_id,
+            username,
+            image_filename,
+            job_name=job_name,
+            workflow_name=workflow_name,
+        )
         await db.update_job(job_id, server_id=server.id)
 
         await server.queue.put(
@@ -98,6 +108,7 @@ class LoadBalancer:
                 "image_path": image_path,
                 "image_filename": image_filename,
                 "username": username,
+                "workflow_data": workflow_data,
             }
         )
 
@@ -148,7 +159,10 @@ class LoadBalancer:
                     continue
 
                 # 2. Build prompt (patch workflow)
-                prompt = comfyui_client.build_prompt(image_name)
+                prompt = comfyui_client.build_prompt(
+                    image_name,
+                    workflow_data=job_data.get("workflow_data"),
+                )
 
                 # 3. Queue prompt
                 prompt_id = await comfyui_client.queue_prompt(
@@ -250,6 +264,14 @@ class LoadBalancer:
             data = self._format_job(job, server)
             await self._broadcast(job["username"], data)
 
+    @staticmethod
+    def _resolve_job_name(job: dict) -> str:
+        name = (job.get("job_name") or "").strip()
+        if name:
+            return name
+        legacy = (job.get("video_name") or "").strip()
+        return legacy
+
     def _format_job(self, job: dict, server: ServerQueue | None = None) -> dict:
         server_name = ""
         if server:
@@ -271,6 +293,9 @@ class LoadBalancer:
                 "progress": job.get("progress", 0),
                 "error_msg": job.get("error_msg"),
                 "input_image": job["input_image"],
+                "job_name": self._resolve_job_name(job),
+                "video_name": self._resolve_job_name(job),
+                "workflow_name": job.get("workflow_name"),
                 "created_at": job["created_at"],
                 "completed_at": job.get("completed_at"),
                 "has_output": job.get("output_info") is not None,
