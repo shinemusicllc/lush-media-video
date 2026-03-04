@@ -110,6 +110,20 @@ p {
   overflow: hidden;
 }
 
+#login-view::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(180deg, rgba(8, 12, 22, 0.18) 0%, rgba(8, 10, 13, 0.72) 82%),
+    url("https://images.pexels.com/photos/9490211/pexels-photo-9490211.jpeg?auto=compress&cs=tinysrgb&dpr=2&w=2400");
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.02);
+  filter: saturate(105%) contrast(106%) brightness(88%);
+  z-index: 0;
+}
+
 #login-view::after {
   content: "";
   position: absolute;
@@ -300,7 +314,7 @@ select:focus {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(900px 380px at 12% -18%, rgba(120, 164, 255, 0.18), transparent 62%);
+  background: radial-gradient(900px 380px at 12% -18%, rgba(120, 164, 255, 0.1), transparent 62%);
 }
 
 .night-scene {
@@ -336,7 +350,7 @@ select:focus {
 }
 
 .starfield::after {
-  opacity: 0.55;
+  opacity: 0.35;
   background-image:
     radial-gradient(circle at 20% 18%, rgba(161, 198, 255, 0.7) 0 1px, transparent 1.6px),
     radial-gradient(circle at 63% 22%, rgba(255, 255, 255, 0.8) 0 1px, transparent 1.5px),
@@ -347,7 +361,7 @@ select:focus {
 
 .meteor {
   position: absolute;
-  width: 180px;
+  width: 220px;
   height: 2px;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.92), rgba(169, 212, 255, 0.45), transparent);
   transform: rotate(-28deg);
@@ -356,104 +370,21 @@ select:focus {
 }
 
 .meteor-1 {
-  top: 18%;
+  top: 16%;
   left: -20%;
-  animation: shooting 8.8s linear infinite;
+  animation: shooting 7.6s linear infinite;
 }
 
 .meteor-2 {
-  top: 30%;
+  top: 28%;
   left: -28%;
-  animation: shooting 10.3s linear infinite 2.2s;
+  animation: shooting 9.1s linear infinite 1.9s;
 }
 
 .meteor-3 {
-  top: 11%;
+  top: 10%;
   left: -34%;
-  animation: shooting 11.5s linear infinite 4.1s;
-}
-
-.dune {
-  position: absolute;
-  left: -10%;
-  right: -10%;
-  border-radius: 55% 45% 0 0 / 100% 100% 0 0;
-}
-
-.dune-back {
-  bottom: 10%;
-  height: 145px;
-  background: linear-gradient(180deg, #3f3125 0%, #2d221b 100%);
-  opacity: 0.78;
-}
-
-.dune-front {
-  bottom: -4%;
-  height: 175px;
-  background: linear-gradient(180deg, #5b4635 0%, #3b2d22 100%);
-  box-shadow: 0 -24px 60px rgba(20, 12, 8, 0.52) inset;
-}
-
-.car-silhouette {
-  position: absolute;
-  right: 12%;
-  bottom: 12%;
-  width: 178px;
-  height: 54px;
-  border-radius: 18px 28px 10px 10px;
-  background: linear-gradient(180deg, #1a1a1b 0%, #0d0d0e 100%);
-  box-shadow: 0 0 0 1px rgba(220, 226, 235, 0.1);
-}
-
-.car-silhouette::before {
-  content: "";
-  position: absolute;
-  top: -24px;
-  left: 28px;
-  width: 92px;
-  height: 30px;
-  border-radius: 26px 22px 6px 6px;
-  background: #141416;
-}
-
-.wheel {
-  position: absolute;
-  bottom: -14px;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%, #6e6e70 0 4px, #121315 5px 100%);
-  box-shadow: 0 0 0 2px #0b0b0c;
-}
-
-.wheel-left {
-  left: 24px;
-}
-
-.wheel-right {
-  right: 24px;
-}
-
-.person-head {
-  position: absolute;
-  top: -32px;
-  left: 86px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #0f1011;
-  box-shadow: 0 0 0 1px rgba(230, 234, 242, 0.15);
-}
-
-.person-body {
-  position: absolute;
-  top: -24px;
-  left: 72px;
-  width: 34px;
-  height: 16px;
-  border-radius: 10px;
-  transform: rotate(-10deg);
-  background: #111213;
+  animation: shooting 10.2s linear infinite 3.5s;
 }
 
 @keyframes twinkle {
@@ -1707,12 +1638,6 @@ select:focus {
     min-height: 0;
   }
 
-  .car-silhouette {
-    transform: scale(0.86);
-    transform-origin: bottom right;
-    right: 8%;
-  }
-
   .app-sidebar {
     position: fixed;
     top: 0;
@@ -1784,12 +1709,6 @@ select:focus {
 
   .hero-metrics {
     grid-template-columns: 1fr;
-  }
-
-  .car-silhouette {
-    transform: scale(0.74);
-    right: 4%;
-    bottom: 10%;
   }
 
   .queue-filters {
