@@ -157,7 +157,7 @@ async def listen_progress(
     prompt_id: str,
     client_id: str,
     on_progress=None,
-    timeout_s: int = 900,
+    timeout_s: int | None = None,
 ) -> dict:
     """
     Lắng nghe WebSocket ComfyUI để theo dõi tiến độ job.
@@ -172,6 +172,10 @@ async def listen_progress(
     """
     ws_url = server_url.replace("http://", "ws://").replace("https://", "wss://")
     ws_url = f"{ws_url}/ws?clientId={client_id}"
+    if timeout_s is None:
+        # Max idle time waiting for the next WS frame.
+        # Long renders may have sparse WS updates near the end.
+        timeout_s = int(os.environ.get("COMFYUI_WS_IDLE_TIMEOUT_S", "1800"))
 
     # Tổng số node trong workflow để tính progress phụ
     TOTAL_NODES = 16  # 16 nodes trong FULLHD_6S_Loop_API.json
@@ -315,7 +319,8 @@ async def listen_progress(
 async def get_history(server_url: str, prompt_id: str) -> dict:
     """Lấy history output sau khi prompt chạy xong."""
     headers = _get_tunnel_headers()
-    async with httpx.AsyncClient(timeout=30, headers=headers) as client:
+    timeout_s = int(os.environ.get("COMFYUI_HISTORY_TIMEOUT_S", "120"))
+    async with httpx.AsyncClient(timeout=timeout_s, headers=headers) as client:
         r = await client.get(f"{server_url}/history/{prompt_id}")
         r.raise_for_status()
         return r.json()
@@ -364,7 +369,8 @@ async def download_output(server_url: str, output_info: dict) -> bytes:
         "type": output_info.get("type", "output"),
     }
     headers = _get_tunnel_headers()
-    async with httpx.AsyncClient(timeout=300, headers=headers) as client:
+    timeout_s = int(os.environ.get("COMFYUI_DOWNLOAD_TIMEOUT_S", "900"))
+    async with httpx.AsyncClient(timeout=timeout_s, headers=headers) as client:
         r = await client.get(f"{server_url}/view", params=params)
         r.raise_for_status()
         return r.content
