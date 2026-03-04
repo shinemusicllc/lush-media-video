@@ -283,13 +283,188 @@ select:focus {
   content: "";
   position: absolute;
   inset: 0;
+  background:
+    radial-gradient(900px 480px at 50% -10%, rgba(110, 154, 255, 0.28), transparent 64%),
+    linear-gradient(180deg, #0a1a3a 0%, #081730 38%, #0b1220 72%, #16120f 100%);
+}
+
+.night-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.starfield {
+  position: absolute;
+  inset: 0;
+}
+
+.starfield::before,
+.starfield::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+  animation: twinkle 5s ease-in-out infinite alternate;
+}
+
+.starfield::before {
   background-image:
-    linear-gradient(180deg, rgba(8, 10, 13, 0.22) 0%, rgba(8, 10, 13, 0.78) 75%),
-    url("https://picsum.photos/seed/lush-login-cinematic/1400/900");
-  background-size: cover;
-  background-position: center;
-  filter: saturate(76%) brightness(82%);
-  transform: scale(1.05);
+    radial-gradient(circle at 12% 24%, rgba(255, 255, 255, 0.9) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 74% 16%, rgba(211, 228, 255, 0.86) 0 1.2px, transparent 1.7px),
+    radial-gradient(circle at 52% 38%, rgba(255, 255, 255, 0.82) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 30% 62%, rgba(198, 225, 255, 0.75) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 88% 56%, rgba(255, 255, 255, 0.82) 0 1.1px, transparent 1.6px);
+}
+
+.starfield::after {
+  opacity: 0.55;
+  background-image:
+    radial-gradient(circle at 20% 18%, rgba(161, 198, 255, 0.7) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 63% 22%, rgba(255, 255, 255, 0.8) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 42% 54%, rgba(188, 219, 255, 0.7) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 82% 36%, rgba(255, 255, 255, 0.78) 0 1px, transparent 1.6px);
+  animation-duration: 7.5s;
+}
+
+.meteor {
+  position: absolute;
+  width: 180px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.92), rgba(169, 212, 255, 0.45), transparent);
+  transform: rotate(-28deg);
+  filter: drop-shadow(0 0 8px rgba(187, 226, 255, 0.8));
+  opacity: 0;
+}
+
+.meteor-1 {
+  top: 18%;
+  left: -20%;
+  animation: shooting 8.8s linear infinite;
+}
+
+.meteor-2 {
+  top: 30%;
+  left: -28%;
+  animation: shooting 10.3s linear infinite 2.2s;
+}
+
+.meteor-3 {
+  top: 11%;
+  left: -34%;
+  animation: shooting 11.5s linear infinite 4.1s;
+}
+
+.dune {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  border-radius: 55% 45% 0 0 / 100% 100% 0 0;
+}
+
+.dune-back {
+  bottom: 10%;
+  height: 145px;
+  background: linear-gradient(180deg, #3f3125 0%, #2d221b 100%);
+  opacity: 0.78;
+}
+
+.dune-front {
+  bottom: -4%;
+  height: 175px;
+  background: linear-gradient(180deg, #5b4635 0%, #3b2d22 100%);
+  box-shadow: 0 -24px 60px rgba(20, 12, 8, 0.52) inset;
+}
+
+.car-silhouette {
+  position: absolute;
+  right: 12%;
+  bottom: 12%;
+  width: 178px;
+  height: 54px;
+  border-radius: 18px 28px 10px 10px;
+  background: linear-gradient(180deg, #1a1a1b 0%, #0d0d0e 100%);
+  box-shadow: 0 0 0 1px rgba(220, 226, 235, 0.1);
+}
+
+.car-silhouette::before {
+  content: "";
+  position: absolute;
+  top: -24px;
+  left: 28px;
+  width: 92px;
+  height: 30px;
+  border-radius: 26px 22px 6px 6px;
+  background: #141416;
+}
+
+.wheel {
+  position: absolute;
+  bottom: -14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #6e6e70 0 4px, #121315 5px 100%);
+  box-shadow: 0 0 0 2px #0b0b0c;
+}
+
+.wheel-left {
+  left: 24px;
+}
+
+.wheel-right {
+  right: 24px;
+}
+
+.person-head {
+  position: absolute;
+  top: -32px;
+  left: 86px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #0f1011;
+  box-shadow: 0 0 0 1px rgba(230, 234, 242, 0.15);
+}
+
+.person-body {
+  position: absolute;
+  top: -24px;
+  left: 72px;
+  width: 34px;
+  height: 16px;
+  border-radius: 10px;
+  transform: rotate(-10deg);
+  background: #111213;
+}
+
+@keyframes twinkle {
+  from {
+    opacity: 0.68;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shooting {
+  0% {
+    transform: translateX(0) translateY(0) rotate(-28deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  26% {
+    transform: translateX(980px) translateY(320px) rotate(-28deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(980px) translateY(320px) rotate(-28deg);
+    opacity: 0;
+  }
 }
 
 .login-hero > * {
@@ -1516,6 +1691,12 @@ select:focus {
     min-height: 0;
   }
 
+  .car-silhouette {
+    transform: scale(0.86);
+    transform-origin: bottom right;
+    right: 8%;
+  }
+
   .app-sidebar {
     position: fixed;
     top: 0;
@@ -1587,6 +1768,12 @@ select:focus {
 
   .hero-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .car-silhouette {
+    transform: scale(0.74);
+    right: 4%;
+    bottom: 10%;
   }
 
   .queue-filters {
