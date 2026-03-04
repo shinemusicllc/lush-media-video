@@ -285,7 +285,7 @@ select:focus {
 
 .login-shell {
   min-height: 100vh;
-  max-width: 520px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 24px;
   display: grid;
