@@ -15,6 +15,7 @@ from fastapi import (
     FastAPI,
     File,
     Form,
+    Header,
     UploadFile,
     Depends,
     HTTPException,
@@ -279,16 +280,28 @@ async def delete_job(job_id: str, user: dict = Depends(get_current_user)):
 
 
 @app.get("/api/jobs/{job_id}/video")
-async def download_video(job_id: str, token: str = "", user: dict = None):
-    """Download video — hỗ trợ cả Bearer header và ?token= query param."""
-    # Auth: thử query param trước (cho browser direct link)
+async def download_video(
+    job_id: str,
+    token: str = "",
+    authorization: str | None = Header(default=None),
+):
+    """Download video — hỗ trợ cả Authorization: Bearer và ?token= query param."""
+    user = None
+    access_token = (token or "").strip()
+
+    if not access_token and authorization:
+        parts = authorization.strip().split(" ", 1)
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            access_token = parts[1].strip()
+
+    if access_token:
+        try:
+            payload = decode_token(access_token)
+            user = await db.get_user(payload["sub"])
+        except Exception:
+            user = None
+
     if not user:
-        if token:
-            try:
-                payload = decode_token(token)
-                user = await db.get_user(payload["sub"])
-            except Exception:
-                pass
         raise HTTPException(status_code=401, detail="Chưa đăng nhập")
 
     job = await db.get_job(job_id)
