@@ -366,26 +366,26 @@ select:focus {
   width: 260px;
   height: 2px;
   background: linear-gradient(90deg, rgba(250, 252, 255, 0.98), rgba(172, 219, 255, 0.5), transparent);
-  transform: rotate(-28deg);
+  transform: rotate(154deg);
   filter: drop-shadow(0 0 10px rgba(187, 226, 255, 0.85));
   opacity: 0;
 }
 
 .meteor-1 {
-  top: 12%;
-  left: -20%;
+  top: 8%;
+  left: 104%;
   animation: shooting 6.8s linear infinite;
 }
 
 .meteor-2 {
-  top: 22%;
-  left: -28%;
+  top: 18%;
+  left: 112%;
   animation: shooting 8.4s linear infinite 1.4s;
 }
 
 .meteor-3 {
-  top: 30%;
-  left: -34%;
+  top: 28%;
+  left: 120%;
   animation: shooting 9.8s linear infinite 3.2s;
 }
 
@@ -400,18 +400,18 @@ select:focus {
 
 @keyframes shooting {
   0% {
-    transform: translateX(0) translateY(0) rotate(-28deg);
+    transform: translateX(0) translateY(0) rotate(154deg);
     opacity: 0;
   }
   8% {
     opacity: 1;
   }
-  26% {
-    transform: translateX(980px) translateY(320px) rotate(-28deg);
+  30% {
+    transform: translateX(-980px) translateY(420px) rotate(154deg);
     opacity: 0;
   }
   100% {
-    transform: translateX(980px) translateY(320px) rotate(-28deg);
+    transform: translateX(-980px) translateY(420px) rotate(154deg);
     opacity: 0;
   }
 }
