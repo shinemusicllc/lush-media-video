@@ -272,9 +272,29 @@ select:focus {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
   background:
     radial-gradient(950px 380px at 20% -20%, rgba(255, 255, 255, 0.08), transparent 62%),
     var(--surface-2);
+}
+
+.login-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(180deg, rgba(8, 10, 13, 0.22) 0%, rgba(8, 10, 13, 0.78) 75%),
+    url("https://picsum.photos/seed/lush-login-cinematic/1400/900");
+  background-size: cover;
+  background-position: center;
+  filter: saturate(76%) brightness(82%);
+  transform: scale(1.05);
+}
+
+.login-hero > * {
+  position: relative;
+  z-index: 1;
 }
 
 .hero-kicker {
@@ -297,8 +317,30 @@ select:focus {
 
 .hero-description {
   margin-top: 12px;
-  color: var(--text-muted);
+  color: #d0d8e5;
   max-width: 56ch;
+}
+
+.login-hero-cover {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.login-hero-cover-chip {
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(11, 15, 20, 0.46);
+  color: #e8edf8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
 }
 
 .hero-metrics {
@@ -361,6 +403,20 @@ select:focus {
   margin-top: 6px;
   color: var(--text-muted);
   font-size: 14px;
+}
+
+#login-form input {
+  min-height: 46px;
+  border-radius: 14px;
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.07);
+  padding: 0 14px;
+}
+
+#login-form input:focus {
+  border-color: rgba(255, 255, 255, 0.54);
+  background: rgba(255, 255, 255, 0.11);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
 }
 
 .app-shell {
