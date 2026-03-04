@@ -115,13 +115,13 @@ p {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(180deg, rgba(10, 18, 34, 0.16) 0%, rgba(8, 11, 16, 0.72) 82%),
+    linear-gradient(180deg, rgba(12, 22, 40, 0.08) 0%, rgba(8, 11, 16, 0.48) 84%),
     url("/static/login-bg.jpg"),
     url("https://images.pexels.com/photos/9490211/pexels-photo-9490211.jpeg?auto=compress&cs=tinysrgb&dpr=2&w=2400");
   background-size: cover;
   background-position: center, center 58%;
   transform: scale(1.02);
-  filter: saturate(110%) contrast(108%) brightness(82%);
+  filter: saturate(114%) contrast(106%) brightness(98%);
   z-index: 0;
 }
 
@@ -130,8 +130,8 @@ p {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(900px 480px at 14% 18%, rgba(76, 124, 220, 0.2), transparent 62%),
-    linear-gradient(180deg, rgba(6, 9, 14, 0.24) 0%, rgba(8, 10, 13, 0.62) 58%, rgba(8, 10, 13, 0.82) 100%);
+    radial-gradient(900px 480px at 14% 18%, rgba(98, 148, 246, 0.2), transparent 62%),
+    linear-gradient(180deg, rgba(6, 9, 14, 0.1) 0%, rgba(8, 10, 13, 0.36) 58%, rgba(8, 10, 13, 0.62) 100%);
   pointer-events: none;
   z-index: 1;
 }
