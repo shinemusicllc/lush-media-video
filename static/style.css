@@ -115,12 +115,13 @@ p {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(180deg, rgba(8, 12, 22, 0.18) 0%, rgba(8, 10, 13, 0.72) 82%),
+    linear-gradient(180deg, rgba(10, 18, 34, 0.16) 0%, rgba(8, 11, 16, 0.72) 82%),
+    url("/static/login-bg.jpg"),
     url("https://images.pexels.com/photos/9490211/pexels-photo-9490211.jpeg?auto=compress&cs=tinysrgb&dpr=2&w=2400");
   background-size: cover;
-  background-position: center;
+  background-position: center, center 58%;
   transform: scale(1.02);
-  filter: saturate(105%) contrast(106%) brightness(88%);
+  filter: saturate(110%) contrast(108%) brightness(82%);
   z-index: 0;
 }
 
@@ -128,7 +129,9 @@ p {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(6, 8, 12, 0.2) 0%, rgba(8, 10, 13, 0.6) 60%, rgba(8, 10, 13, 0.78) 100%);
+  background:
+    radial-gradient(900px 480px at 14% 18%, rgba(76, 124, 220, 0.2), transparent 62%),
+    linear-gradient(180deg, rgba(6, 9, 14, 0.24) 0%, rgba(8, 10, 13, 0.62) 58%, rgba(8, 10, 13, 0.82) 100%);
   pointer-events: none;
   z-index: 1;
 }
@@ -321,9 +324,8 @@ select:focus {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: 2;
   overflow: hidden;
-  z-index: 0;
 }
 
 .starfield {
@@ -350,7 +352,7 @@ select:focus {
 }
 
 .starfield::after {
-  opacity: 0.35;
+  opacity: 0.24;
   background-image:
     radial-gradient(circle at 20% 18%, rgba(161, 198, 255, 0.7) 0 1px, transparent 1.6px),
     radial-gradient(circle at 63% 22%, rgba(255, 255, 255, 0.8) 0 1px, transparent 1.5px),
@@ -361,30 +363,30 @@ select:focus {
 
 .meteor {
   position: absolute;
-  width: 220px;
+  width: 260px;
   height: 2px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.92), rgba(169, 212, 255, 0.45), transparent);
+  background: linear-gradient(90deg, rgba(250, 252, 255, 0.98), rgba(172, 219, 255, 0.5), transparent);
   transform: rotate(-28deg);
-  filter: drop-shadow(0 0 8px rgba(187, 226, 255, 0.8));
+  filter: drop-shadow(0 0 10px rgba(187, 226, 255, 0.85));
   opacity: 0;
 }
 
 .meteor-1 {
-  top: 16%;
+  top: 12%;
   left: -20%;
-  animation: shooting 7.6s linear infinite;
+  animation: shooting 6.8s linear infinite;
 }
 
 .meteor-2 {
-  top: 28%;
+  top: 22%;
   left: -28%;
-  animation: shooting 9.1s linear infinite 1.9s;
+  animation: shooting 8.4s linear infinite 1.4s;
 }
 
 .meteor-3 {
-  top: 10%;
+  top: 30%;
   left: -34%;
-  animation: shooting 10.2s linear infinite 3.5s;
+  animation: shooting 9.8s linear infinite 3.2s;
 }
 
 @keyframes twinkle {
