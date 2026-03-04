@@ -12,15 +12,25 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # ComfyUI Servers
 # DEV  : http://127.0.0.1:8188 (mặc định)
 # PROD : set env COMFYUI_BASE_URL=https://comfy.yourdomain.com
-# Multi-GPU: set COMFYUI_SERVERS_JSON (JSON array)
+# Multi-GPU:
+#   - set COMFYUI_GPU0 / COMFYUI_GPU1
+#   - or set COMFYUI_SERVERS_JSON (JSON array) để override hoàn toàn
 # ============================================================
 _COMFYUI_URL = os.environ.get("COMFYUI_BASE_URL", "http://127.0.0.1:8188")
+_COMFYUI_GPU0 = os.environ.get("COMFYUI_GPU0", "").strip()
+_COMFYUI_GPU1 = os.environ.get("COMFYUI_GPU1", "").strip()
 
 # Hỗ trợ multi-GPU qua JSON env (optional)
 _SERVERS_JSON = os.environ.get("COMFYUI_SERVERS_JSON", "")
 if _SERVERS_JSON:
     import json as _json
     COMFYUI_SERVERS = _json.loads(_SERVERS_JSON)
+elif _COMFYUI_GPU0:
+    COMFYUI_SERVERS = [
+        {"id": "gpu0", "url": _COMFYUI_GPU0, "name": "GPU 0"},
+    ]
+    if _COMFYUI_GPU1:
+        COMFYUI_SERVERS.append({"id": "gpu1", "url": _COMFYUI_GPU1, "name": "GPU 1"})
 else:
     COMFYUI_SERVERS = [
         {"id": "gpu1", "url": _COMFYUI_URL, "name": "GPU #1"},
