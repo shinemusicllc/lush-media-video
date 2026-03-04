@@ -7,6 +7,7 @@ import asyncio
 import uuid
 import json
 import logging
+import os
 from datetime import datetime, timezone
 
 from config import COMFYUI_SERVERS
@@ -14,6 +15,11 @@ import comfyui_client
 import database as db
 
 logger = logging.getLogger("load_balancer")
+
+SERVER_RECOVERY_RETRIES = int(os.environ.get("COMFYUI_SERVER_RECOVERY_RETRIES", "36"))
+SERVER_RECOVERY_INTERVAL_S = int(
+    os.environ.get("COMFYUI_SERVER_RECOVERY_INTERVAL_S", "5")
+)
 
 
 class ServerQueue:
@@ -139,7 +145,9 @@ class LoadBalancer:
                 # Kiểm tra server
                 server.is_online = await comfyui_client.check_server(server.url)
                 if not server.is_online:
-                    raise ConnectionError(f"Server {server.name} offline")
+                    recovered = await self._wait_until_online(server)
+                    if not recovered:
+                        raise ConnectionError(f"Server {server.name} offline")
 
                 # → running
                 await db.update_job(job_id, status="running")
@@ -230,6 +238,19 @@ class LoadBalancer:
             finally:
                 server.current_job = None
                 server.queue.task_done()
+
+    async def _wait_until_online(self, server: ServerQueue) -> bool:
+        """Wait for server to recover after restart before failing the job."""
+        for attempt in range(1, SERVER_RECOVERY_RETRIES + 1):
+            await asyncio.sleep(SERVER_RECOVERY_INTERVAL_S)
+            server.is_online = await comfyui_client.check_server(server.url)
+            if server.is_online:
+                logger.info(
+                    f"{server.name} back online after retry {attempt}/"
+                    f"{SERVER_RECOVERY_RETRIES}"
+                )
+                return True
+        return False
 
     # ── WebSocket broadcast ─────────────────────────────────
 

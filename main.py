@@ -442,8 +442,18 @@ async def ws_jobs(websocket: WebSocket, token: str = ""):
 
         async def sender():
             while True:
-                data = await queue.get()
-                await websocket.send_json(data)
+                try:
+                    data = await asyncio.wait_for(queue.get(), timeout=8)
+                    await websocket.send_json(data)
+                except asyncio.TimeoutError:
+                    # Push periodic server status so UI reflects GPU recovery.
+                    statuses = []
+                    for sq in balancer.servers:
+                        sq.is_online = await comfyui_client.check_server(sq.url)
+                        statuses.append(sq.to_dict())
+                    await websocket.send_json(
+                        {"type": "servers_status", "servers": statuses}
+                    )
 
         async def receiver():
             while True:
