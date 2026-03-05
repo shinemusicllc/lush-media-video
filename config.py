@@ -42,7 +42,10 @@ else:
 # ============================================================
 WORKFLOW_PATH = os.path.join(BASE_DIR, "FULLHD_6S_Loop_API.json")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-DB_PATH = os.path.join(BASE_DIR, "comfybot.db")
+# Railway volume-friendly DB path:
+# - local default: ./comfybot.db
+# - production: set DB_PATH=/data/comfybot.db (mounted volume)
+DB_PATH = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "comfybot.db"))
 
 # ============================================================
 # JWT Authentication

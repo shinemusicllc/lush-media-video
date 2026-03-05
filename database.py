@@ -162,3 +162,17 @@ async def delete_job(job_id: str):
     async with aiosqlite.connect(DB_PATH) as conn:
         await conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
         await conn.commit()
+
+
+async def clear_jobs_for_user(username: str) -> int:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute("DELETE FROM jobs WHERE username = ?", (username,))
+        await conn.commit()
+        return cur.rowcount
+
+
+async def clear_all_jobs() -> int:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute("DELETE FROM jobs")
+        await conn.commit()
+        return cur.rowcount

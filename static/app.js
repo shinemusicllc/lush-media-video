@@ -61,6 +61,7 @@ const filterDateTo = $('#filter-date-to');
 const filterStatus = $('#filter-status');
 const filterSearch = $('#filter-search');
 const filterClear = $('#filter-clear');
+const clearListBtn = $('#clear-list-btn');
 const pagination = $('#pagination');
 const pagePrev = $('#page-prev');
 const pageNext = $('#page-next');
@@ -438,6 +439,27 @@ filterClear?.addEventListener('click', () => {
     filterStatus.value = '';
     state.currentPage = 1;
     renderJobs();
+});
+
+clearListBtn?.addEventListener('click', async () => {
+    try {
+        const isAdmin = state.role === 'admin';
+        const msg = isAdmin
+            ? 'Xóa toàn bộ job list trên hệ thống?'
+            : 'Xóa toàn bộ job của bạn khỏi danh sách?';
+        if (!confirm(msg)) return;
+
+        const scope = isAdmin ? 'all' : 'mine';
+        const res = await api(`/api/jobs/clear?scope=${scope}`, { method: 'POST' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Clear list thất bại');
+        }
+
+        await loadJobs();
+    } catch (err) {
+        alert(`Lỗi: ${err.message}`);
+    }
 });
 
 function renderJobs() {

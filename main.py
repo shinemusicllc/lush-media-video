@@ -83,6 +83,9 @@ def _resolve_output_assets(job_row: dict) -> tuple[dict | None, dict | None]:
 @app.on_event("startup")
 async def startup():
     os.makedirs(config.UPLOAD_DIR, exist_ok=True)
+    db_dir = os.path.dirname(config.DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     await db.init_db()
 
     # Tự tạo admin lần đầu
@@ -300,6 +303,27 @@ async def delete_job(job_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Không thể xóa job đang chạy")
     await db.delete_job(job_id)
     return {"status": "deleted"}
+
+
+@app.post("/api/jobs/clear")
+async def clear_jobs(scope: str = "mine", user: dict = Depends(get_current_user)):
+    """
+    Clear list jobs:
+    - scope=mine (default): clear current user jobs
+    - scope=all: admin only
+    """
+    scope = (scope or "mine").strip().lower()
+    if scope not in ("mine", "all"):
+        raise HTTPException(status_code=400, detail="Scope không hợp lệ")
+
+    if scope == "all":
+        if user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Không có quyền")
+        deleted = await db.clear_all_jobs()
+        return {"status": "cleared", "scope": "all", "deleted": deleted}
+
+    deleted = await db.clear_jobs_for_user(user["username"])
+    return {"status": "cleared", "scope": "mine", "deleted": deleted}
 
 
 @app.get("/api/jobs/{job_id}/video")
