@@ -41,7 +41,10 @@ else:
 # Paths
 # ============================================================
 WORKFLOW_PATH = os.path.join(BASE_DIR, "FULLHD_6S_Loop_API.json")
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+# Upload path can be mounted to Railway Volume for persistent thumbnails/input files.
+# - local default: ./uploads
+# - production: set UPLOAD_DIR=/data/uploads (mounted volume)
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(BASE_DIR, "uploads"))
 # Railway volume-friendly DB path:
 # - local default: ./comfybot.db
 # - production: set DB_PATH=/data/comfybot.db (mounted volume)
