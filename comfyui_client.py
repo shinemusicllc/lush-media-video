@@ -1,4 +1,4 @@
-﻿"""
+"""
 Module giao tiếp với ComfyUI API.
 Upload ảnh, build prompt, queue job, listen progress, lấy output.
 """
@@ -201,8 +201,15 @@ async def listen_progress(
                     try:
                         hist = await get_history(server_url, prompt_id)
                         if prompt_id in hist:
-                            status = hist[prompt_id].get("status", {})
-                            if status.get("completed", False):
+                            item = hist[prompt_id]
+                            status = item.get("status", {})
+                            outputs = item.get("outputs", {})
+                            status_str = str(status.get("status_str", "")).lower()
+                            completed = bool(status.get("completed", False))
+
+                            # Some ComfyUI builds don't always set status.completed,
+                            # but outputs are already finalized.
+                            if completed or status_str == "success" or bool(outputs):
                                 logger.info("Job completed (detected via history)")
                                 if on_progress:
                                     await on_progress(100)
