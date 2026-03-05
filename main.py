@@ -57,6 +57,26 @@ def _resolve_job_name(job_row: dict) -> str:
     return legacy
 
 
+def _resolve_output_assets(job_row: dict) -> tuple[dict | None, dict | None]:
+    """Return (video_info, image_info) from DB output_info, supporting legacy format."""
+    raw = job_row.get("output_info")
+    if not raw:
+        return None, None
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        return None, None
+
+    if isinstance(payload, dict) and "video" in payload:
+        return payload.get("video"), payload.get("image")
+
+    # Legacy format: direct single output dict (video)
+    if isinstance(payload, dict) and payload.get("filename"):
+        return payload, None
+
+    return None, None
+
+
 # ── Startup / Shutdown ──────────────────────────────────────
 
 
@@ -230,6 +250,7 @@ async def list_jobs(user: dict = Depends(get_current_user)):
     result = []
     for j in jobs:
         server_name = ""
+        video_info, image_info = _resolve_output_assets(j)
         for s in balancer.servers:
             if s.id == j.get("server_id"):
                 server_name = s.name
@@ -250,6 +271,8 @@ async def list_jobs(user: dict = Depends(get_current_user)):
                 "created_at": j["created_at"],
                 "completed_at": j.get("completed_at"),
                 "has_output": j.get("output_info") is not None,
+                "has_video": video_info is not None,
+                "has_image": image_info is not None,
             }
         )
     return result
@@ -312,7 +335,9 @@ async def download_video(
     if job["status"] != "done" or not job.get("output_info"):
         raise HTTPException(status_code=400, detail="Video chưa sẵn sàng")
 
-    output_info = json.loads(job["output_info"])
+    video_info, _ = _resolve_output_assets(job)
+    if not video_info:
+        raise HTTPException(status_code=400, detail="Video chưa sẵn sàng")
 
     server_url = None
     for s in config.COMFYUI_SERVERS:
@@ -323,9 +348,9 @@ async def download_video(
         raise HTTPException(status_code=500, detail="Server không tìm thấy")
 
     params = {
-        "filename": output_info["filename"],
-        "subfolder": output_info.get("subfolder", ""),
-        "type": output_info.get("type", "output"),
+        "filename": video_info["filename"],
+        "subfolder": video_info.get("subfolder", ""),
+        "type": video_info.get("type", "output"),
     }
     timeout_s = int(os.environ.get("COMFYUI_DOWNLOAD_TIMEOUT_S", "900"))
     headers = comfyui_client._get_tunnel_headers()
@@ -341,7 +366,82 @@ async def download_video(
         video_stream(),
         media_type="video/mp4",
         headers={
-            "Content-Disposition": f'attachment; filename="{output_info["filename"]}"'
+            "Content-Disposition": f'attachment; filename="{video_info["filename"]}"'
+        },
+    )
+
+
+@app.get("/api/jobs/{job_id}/image")
+async def download_image(
+    job_id: str,
+    token: str = "",
+    authorization: str | None = Header(default=None),
+):
+    """Download output image — supports Bearer or ?token= query auth."""
+    user = None
+    access_token = (token or "").strip()
+
+    if not access_token and authorization:
+        parts = authorization.strip().split(" ", 1)
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            access_token = parts[1].strip()
+
+    if access_token:
+        try:
+            payload = decode_token(access_token)
+            user = await db.get_user(payload["sub"])
+        except Exception:
+            user = None
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Chưa đăng nhập")
+
+    job = await db.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job không tồn tại")
+    if job["username"] != user["username"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Không có quyền")
+    if job["status"] != "done" or not job.get("output_info"):
+        raise HTTPException(status_code=400, detail="Ảnh chưa sẵn sàng")
+
+    _, image_info = _resolve_output_assets(job)
+    if not image_info:
+        raise HTTPException(status_code=400, detail="Job này không có ảnh output")
+
+    server_url = None
+    for s in config.COMFYUI_SERVERS:
+        if s["id"] == job.get("server_id"):
+            server_url = s["url"]
+            break
+    if not server_url:
+        raise HTTPException(status_code=500, detail="Server không tìm thấy")
+
+    params = {
+        "filename": image_info["filename"],
+        "subfolder": image_info.get("subfolder", ""),
+        "type": image_info.get("type", "output"),
+    }
+    timeout_s = int(os.environ.get("COMFYUI_DOWNLOAD_TIMEOUT_S", "900"))
+    headers = comfyui_client._get_tunnel_headers()
+    ext = Path(image_info["filename"]).suffix.lower()
+    media_type = "image/png"
+    if ext in (".jpg", ".jpeg"):
+        media_type = "image/jpeg"
+    elif ext == ".webp":
+        media_type = "image/webp"
+
+    async def image_stream():
+        async with httpx.AsyncClient(timeout=timeout_s, headers=headers) as client:
+            async with client.stream("GET", f"{server_url}/view", params=params) as r:
+                r.raise_for_status()
+                async for chunk in r.aiter_bytes():
+                    yield chunk
+
+    return StreamingResponse(
+        image_stream(),
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{image_info["filename"]}"'
         },
     )
 

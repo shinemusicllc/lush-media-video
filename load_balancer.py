@@ -293,6 +293,24 @@ class LoadBalancer:
         legacy = (job.get("video_name") or "").strip()
         return legacy
 
+    @staticmethod
+    def _resolve_output_assets(job: dict) -> tuple[dict | None, dict | None]:
+        raw = job.get("output_info")
+        if not raw:
+            return None, None
+        try:
+            payload = json.loads(raw)
+        except Exception:
+            return None, None
+
+        if isinstance(payload, dict) and "video" in payload:
+            return payload.get("video"), payload.get("image")
+
+        if isinstance(payload, dict) and payload.get("filename"):
+            return payload, None
+
+        return None, None
+
     def _format_job(self, job: dict, server: ServerQueue | None = None) -> dict:
         server_name = ""
         if server:
@@ -302,6 +320,8 @@ class LoadBalancer:
                 if s.id == job.get("server_id"):
                     server_name = s.name
                     break
+
+        video_info, image_info = self._resolve_output_assets(job)
 
         return {
             "type": "job_update",
@@ -320,6 +340,8 @@ class LoadBalancer:
                 "created_at": job["created_at"],
                 "completed_at": job.get("completed_at"),
                 "has_output": job.get("output_info") is not None,
+                "has_video": video_info is not None,
+                "has_image": image_info is not None,
             },
         }
 

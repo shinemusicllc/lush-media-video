@@ -544,12 +544,22 @@ function getJobHTML(job) {
 
     let actionsHTML = '';
 
-    if (job.status === 'done' && job.has_output) {
+    if (job.status === 'done' && (job.has_video || job.has_output)) {
         actionsHTML += `<button class="btn-download" onclick="downloadVideo('${job.id}')" title="Tải video">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
             </svg>
             Tải
+        </button>`;
+    }
+    if (job.status === 'done' && job.has_image) {
+        actionsHTML += `<button class="btn-download" onclick="downloadImage('${job.id}')" title="Tải ảnh output">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <path d="M21 15l-5-5L5 21"/>
+            </svg>
+            Ảnh
         </button>`;
     }
 
@@ -634,6 +644,33 @@ function downloadVideo(jobId) {
         .catch((err) => alert(`Lỗi tải video: ${err.message}`));
 }
 window.downloadVideo = downloadVideo;
+
+function downloadImage(jobId) {
+    const job = state.jobs.find((j) => j.id === jobId);
+    const baseName = sanitizeFilename(getJobName(job, jobId.substring(0, 8)));
+
+    fetch(`/api/jobs/${jobId}/image?token=${encodeURIComponent(state.token)}`)
+        .then((res) => {
+            if (!res.ok) throw new Error('Tải ảnh thất bại');
+            const contentType = res.headers.get('content-type') || '';
+            let ext = '.png';
+            if (contentType.includes('jpeg') || contentType.includes('jpg')) ext = '.jpg';
+            if (contentType.includes('webp')) ext = '.webp';
+            return res.blob().then((blob) => ({ blob, ext }));
+        })
+        .then(({ blob, ext }) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${baseName}${ext}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        })
+        .catch((err) => alert(`Lỗi tải ảnh: ${err.message}`));
+}
+window.downloadImage = downloadImage;
 
 function connectWS() {
     if (state.ws) state.ws.close();

@@ -330,39 +330,50 @@ async def get_history(server_url: str, prompt_id: str) -> dict:
         return r.json()
 
 
+def _extract_first_asset(node_out: dict, keys: tuple[str, ...]) -> dict | None:
+    for key in keys:
+        items = node_out.get(key, [])
+        if items:
+            return {
+                "filename": items[0]["filename"],
+                "subfolder": items[0].get("subfolder", ""),
+                "type": items[0].get("type", "output"),
+            }
+    return None
+
+
 def extract_output_info(history: dict, prompt_id: str) -> dict | None:
-    """Trích xuất thông tin video output từ ComfyUI history."""
+    """Trích xuất thông tin video + image output từ ComfyUI history."""
     if prompt_id not in history:
         return None
 
     outputs = history[prompt_id].get("outputs", {})
 
-    # Node 82 — VHS_VideoCombine output
+    video_info = None
+    image_info = None
+
+    # Node 82 — VHS_VideoCombine output (ưu tiên)
     if "82" in outputs:
         node_out = outputs["82"]
+        video_info = _extract_first_asset(node_out, ("gifs", "videos"))
+        image_info = _extract_first_asset(node_out, ("images",))
 
-        # VHS có thể dùng "gifs" hoặc "videos" key
-        for key in ("gifs", "videos", "images"):
-            items = node_out.get(key, [])
-            if items:
-                return {
-                    "filename": items[0]["filename"],
-                    "subfolder": items[0].get("subfolder", ""),
-                    "type": items[0].get("type", "output"),
-                }
+    # Fallback: scan all nodes
+    for node_out in outputs.values():
+        if not video_info:
+            video_info = _extract_first_asset(node_out, ("gifs", "videos"))
+        if not image_info:
+            image_info = _extract_first_asset(node_out, ("images",))
+        if video_info and image_info:
+            break
 
-    # Fallback: tìm bất kỳ node nào có output video/gif
-    for node_id, node_out in outputs.items():
-        for key in ("gifs", "videos"):
-            items = node_out.get(key, [])
-            if items:
-                return {
-                    "filename": items[0]["filename"],
-                    "subfolder": items[0].get("subfolder", ""),
-                    "type": items[0].get("type", "output"),
-                }
+    if not video_info and not image_info:
+        return None
 
-    return None
+    return {
+        "video": video_info,
+        "image": image_info,
+    }
 
 
 async def download_output(server_url: str, output_info: dict) -> bytes:
