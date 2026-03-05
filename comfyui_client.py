@@ -1,4 +1,4 @@
-"""
+﻿"""
 Module giao tiếp với ComfyUI API.
 Upload ảnh, build prompt, queue job, listen progress, lấy output.
 """
@@ -358,39 +358,75 @@ def _extract_all_assets(node_out: dict, keys: tuple[str, ...]) -> list[dict]:
     return assets
 
 
+def _normalize_stem(stem: str) -> str:
+    stem = stem.strip().lower()
+    stem = re.sub(r"[_-]?\d{1,6}$", "", stem)
+    stem = re.sub(r"[_-](final|video|output)$", "", stem)
+    return stem
+
+
+def _score_image_candidate(video_info: dict | None, image: dict) -> int:
+    score = 0
+    image_name = image.get("filename", "")
+    image_stem = os.path.splitext(image_name)[0].strip().lower()
+    image_type = (image.get("type") or "").strip().lower()
+
+    if image_type == "output":
+        score += 30
+    elif image_type == "temp":
+        score -= 20
+
+    if not video_info:
+        return score
+
+    video_name = video_info.get("filename", "")
+    video_stem = os.path.splitext(video_name)[0].strip().lower()
+    if image_stem == video_stem:
+        score += 100
+    else:
+        image_norm = _normalize_stem(image_stem)
+        video_norm = _normalize_stem(video_stem)
+        if image_norm == video_norm:
+            score += 80
+        elif image_norm.startswith(video_norm) or video_norm.startswith(image_norm):
+            score += 50
+
+    if (image.get("subfolder") or "") == (video_info.get("subfolder") or ""):
+        score += 10
+    if (image.get("type") or "") == (video_info.get("type") or ""):
+        score += 5
+    return score
+
+
 def _pick_matching_image(video_info: dict | None, image_assets: list[dict]) -> dict | None:
     if not image_assets:
         return None
-    if not video_info:
-        return image_assets[0]
+    return max(image_assets, key=lambda img: _score_image_candidate(video_info, img))
 
-    video_stem = os.path.splitext(video_info.get("filename", ""))[0].strip().lower()
-    if not video_stem:
-        return image_assets[0]
 
-    # 1) Exact basename match first.
-    for image in image_assets:
-        image_stem = os.path.splitext(image.get("filename", ""))[0].strip().lower()
-        if image_stem == video_stem:
-            return image
+def extract_image_candidates(
+    history: dict, prompt_id: str, video_info: dict | None = None
+) -> list[dict]:
+    """Collect and rank image assets from history for robust download fallback."""
+    if prompt_id not in history:
+        return []
 
-    # 2) Relaxed match for variants like wan001 vs wan001_00001.
-    def normalize(stem: str) -> str:
-        stem = stem.strip().lower()
-        stem = re.sub(r"[_-]?\d{1,6}$", "", stem)
-        stem = re.sub(r"[_-](final|video|output)$", "", stem)
-        return stem
+    outputs = history[prompt_id].get("outputs", {})
+    candidates: list[dict] = []
+    for node_out in outputs.values():
+        if not isinstance(node_out, dict):
+            continue
+        candidates.extend(_extract_all_assets(node_out, ("images",)))
 
-    video_norm = normalize(video_stem)
-    for image in image_assets:
-        image_stem = os.path.splitext(image.get("filename", ""))[0].strip().lower()
-        image_norm = normalize(image_stem)
-        if image_norm == video_norm:
-            return image
-        if image_norm.startswith(video_norm) or video_norm.startswith(image_norm):
-            return image
+    # De-duplicate by filename/subfolder/type.
+    unique: dict[tuple[str, str, str], dict] = {}
+    for c in candidates:
+        key = (c.get("filename", ""), c.get("subfolder", ""), c.get("type", "output"))
+        unique[key] = c
 
-    return image_assets[0]
+    ranked = list(unique.values())
+    ranked.sort(key=lambda img: _score_image_candidate(video_info, img), reverse=True)
+    return ranked
 
 
 def extract_output_info(history: dict, prompt_id: str) -> dict | None:
@@ -442,3 +478,4 @@ async def download_output(server_url: str, output_info: dict) -> bytes:
         r = await client.get(f"{server_url}/view", params=params)
         r.raise_for_status()
         return r.content
+

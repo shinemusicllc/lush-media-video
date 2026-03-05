@@ -401,7 +401,7 @@ async def download_image(
     token: str = "",
     authorization: str | None = Header(default=None),
 ):
-    """Download output image — supports Bearer or ?token= query auth."""
+    """Download output image - robust fallback: metadata, basename match, and history scan."""
     user = None
     access_token = (token or "").strip()
 
@@ -418,15 +418,15 @@ async def download_image(
             user = None
 
     if not user:
-        raise HTTPException(status_code=401, detail="Chưa đăng nhập")
+        raise HTTPException(status_code=401, detail="Chua dang nhap")
 
     job = await db.get_job(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job không tồn tại")
+        raise HTTPException(status_code=404, detail="Job khong ton tai")
     if job["username"] != user["username"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Không có quyền")
+        raise HTTPException(status_code=403, detail="Khong co quyen")
     if job["status"] != "done" or not job.get("output_info"):
-        raise HTTPException(status_code=400, detail="Ảnh chưa sẵn sàng")
+        raise HTTPException(status_code=400, detail="Anh chua san sang")
 
     server_url = None
     for s in config.COMFYUI_SERVERS:
@@ -434,52 +434,108 @@ async def download_image(
             server_url = s["url"]
             break
     if not server_url:
-        raise HTTPException(status_code=500, detail="Server không tìm thấy")
+        raise HTTPException(status_code=500, detail="Server khong tim thay")
 
-    _, image_info = _resolve_output_assets(job)
-    if not image_info:
-        # Backfill for old rows generated before improved image matching logic.
-        prompt_id = (job.get("prompt_id") or "").strip()
-        if prompt_id:
-            try:
-                history = await comfyui_client.get_history(server_url, prompt_id)
-                output_info = comfyui_client.extract_output_info(history, prompt_id)
-                if output_info and output_info.get("image"):
-                    await db.update_job(job_id, output_info=json.dumps(output_info))
-                    image_info = output_info.get("image")
-            except Exception:
-                image_info = None
+    video_info, image_info = _resolve_output_assets(job)
 
-    if not image_info:
-        raise HTTPException(status_code=400, detail="Job này không có ảnh output")
+    candidates: list[dict] = []
+    seen: set[tuple[str, str, str]] = set()
 
-    params = {
-        "filename": image_info["filename"],
-        "subfolder": image_info.get("subfolder", ""),
-        "type": image_info.get("type", "output"),
-    }
+    def add_candidate(info: dict | None):
+        if not info or not info.get("filename"):
+            return
+        item = {
+            "filename": info["filename"],
+            "subfolder": info.get("subfolder", ""),
+            "type": info.get("type", "output"),
+        }
+        key = (item["filename"], item["subfolder"], item["type"])
+        if key not in seen:
+            seen.add(key)
+            candidates.append(item)
+
+    # 1) existing stored image_info (if any)
+    add_candidate(image_info)
+
+    # 2) derive same basename as video, same folder/type first
+    if video_info and video_info.get("filename"):
+        stem = Path(video_info["filename"]).stem
+        subfolder = video_info.get("subfolder", "")
+        vtype = video_info.get("type", "output")
+        for ext in (".png", ".jpg", ".jpeg", ".webp"):
+            add_candidate({"filename": f"{stem}{ext}", "subfolder": subfolder, "type": vtype})
+            if vtype != "output":
+                add_candidate({"filename": f"{stem}{ext}", "subfolder": subfolder, "type": "output"})
+            if subfolder:
+                add_candidate({"filename": f"{stem}{ext}", "subfolder": "", "type": vtype})
+
+    # 3) history scan fallback for old/partial metadata
+    prompt_id = (job.get("prompt_id") or "").strip()
+    if prompt_id:
+        try:
+            history = await comfyui_client.get_history(server_url, prompt_id)
+            for item in comfyui_client.extract_image_candidates(history, prompt_id, video_info):
+                add_candidate(item)
+        except Exception:
+            pass
+
+    if not candidates:
+        raise HTTPException(status_code=400, detail="Job nay khong co anh output")
+
     timeout_s = int(os.environ.get("COMFYUI_DOWNLOAD_TIMEOUT_S", "900"))
     headers = comfyui_client._get_tunnel_headers()
-    ext = Path(image_info["filename"]).suffix.lower()
+
+    chosen: dict | None = None
+    image_bytes: bytes | None = None
     media_type = "image/png"
-    if ext in (".jpg", ".jpeg"):
-        media_type = "image/jpeg"
-    elif ext == ".webp":
-        media_type = "image/webp"
 
-    async def image_stream():
-        async with httpx.AsyncClient(timeout=timeout_s, headers=headers) as client:
-            async with client.stream("GET", f"{server_url}/view", params=params) as r:
-                r.raise_for_status()
-                async for chunk in r.aiter_bytes():
-                    yield chunk
+    async with httpx.AsyncClient(timeout=timeout_s, headers=headers) as client:
+        for c in candidates:
+            try:
+                r = await client.get(
+                    f"{server_url}/view",
+                    params={
+                        "filename": c["filename"],
+                        "subfolder": c.get("subfolder", ""),
+                        "type": c.get("type", "output"),
+                    },
+                )
+                if r.status_code != 200:
+                    continue
 
-    return StreamingResponse(
-        image_stream(),
+                content_type = (r.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
+                ext = Path(c["filename"]).suffix.lower()
+                if not content_type.startswith("image/"):
+                    if ext in (".jpg", ".jpeg"):
+                        content_type = "image/jpeg"
+                    elif ext == ".webp":
+                        content_type = "image/webp"
+                    else:
+                        content_type = "image/png"
+
+                chosen = c
+                image_bytes = r.content
+                media_type = content_type
+                break
+            except Exception:
+                continue
+
+    if not chosen or image_bytes is None:
+        raise HTTPException(status_code=400, detail="Khong tim thay anh output phu hop")
+
+    # Save resolved image back to DB so next requests are instant/stable.
+    try:
+        await db.update_job(
+            job_id,
+            output_info=json.dumps({"video": video_info, "image": chosen}),
+        )
+    except Exception:
+        pass
+
+    return Response(
+        content=image_bytes,
         media_type=media_type,
-        headers={
-            "Content-Disposition": f'attachment; filename="{image_info["filename"]}"'
-        },
+        headers={"Content-Disposition": f'attachment; filename="{chosen["filename"]}"'},
     )
 
 
