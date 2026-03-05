@@ -342,6 +342,39 @@ def _extract_first_asset(node_out: dict, keys: tuple[str, ...]) -> dict | None:
     return None
 
 
+def _extract_all_assets(node_out: dict, keys: tuple[str, ...]) -> list[dict]:
+    assets = []
+    for key in keys:
+        items = node_out.get(key, [])
+        for item in items:
+            assets.append(
+                {
+                    "filename": item["filename"],
+                    "subfolder": item.get("subfolder", ""),
+                    "type": item.get("type", "output"),
+                }
+            )
+    return assets
+
+
+def _pick_matching_image(video_info: dict | None, image_assets: list[dict]) -> dict | None:
+    if not image_assets:
+        return None
+    if not video_info:
+        return image_assets[0]
+
+    video_stem = os.path.splitext(video_info.get("filename", ""))[0].strip().lower()
+    if not video_stem:
+        return image_assets[0]
+
+    for image in image_assets:
+        image_stem = os.path.splitext(image.get("filename", ""))[0].strip().lower()
+        if image_stem == video_stem:
+            return image
+
+    return image_assets[0]
+
+
 def extract_output_info(history: dict, prompt_id: str) -> dict | None:
     """Trích xuất thông tin video + image output từ ComfyUI history."""
     if prompt_id not in history:
@@ -351,19 +384,21 @@ def extract_output_info(history: dict, prompt_id: str) -> dict | None:
 
     video_info = None
     image_info = None
+    image_candidates = []
 
     # Node 82 — VHS_VideoCombine output (ưu tiên)
     if "82" in outputs:
         node_out = outputs["82"]
         video_info = _extract_first_asset(node_out, ("gifs", "videos"))
-        image_info = _extract_first_asset(node_out, ("images",))
+        image_candidates.extend(_extract_all_assets(node_out, ("images",)))
+        image_info = _pick_matching_image(video_info, image_candidates)
 
     # Fallback: scan all nodes
     for node_out in outputs.values():
         if not video_info:
             video_info = _extract_first_asset(node_out, ("gifs", "videos"))
-        if not image_info:
-            image_info = _extract_first_asset(node_out, ("images",))
+        image_candidates.extend(_extract_all_assets(node_out, ("images",)))
+        image_info = _pick_matching_image(video_info, image_candidates)
         if video_info and image_info:
             break
 
