@@ -253,11 +253,39 @@ async def list_jobs(user: dict = Depends(get_current_user)):
     result = []
     for j in jobs:
         server_name = ""
-        video_info, image_info = _resolve_output_assets(j)
+        server_url = None
         for s in balancer.servers:
             if s.id == j.get("server_id"):
                 server_name = s.name
+                server_url = s.url
                 break
+
+        # Self-heal jobs that got stuck at running/progress<100 even though ComfyUI already finished.
+        if j.get("status") == "running" and j.get("prompt_id") and server_url:
+            try:
+                history = await asyncio.wait_for(
+                    comfyui_client.get_history(server_url, j["prompt_id"]),
+                    timeout=6,
+                )
+                output_info = comfyui_client.extract_output_info(history, j["prompt_id"])
+                if output_info:
+                    done_at = datetime.now(timezone.utc).isoformat()
+                    output_json = json.dumps(output_info)
+                    await db.update_job(
+                        j["id"],
+                        status="done",
+                        progress=100,
+                        output_info=output_json,
+                        completed_at=done_at,
+                    )
+                    j["status"] = "done"
+                    j["progress"] = 100
+                    j["output_info"] = output_json
+                    j["completed_at"] = done_at
+            except Exception:
+                pass
+
+        video_info, image_info = _resolve_output_assets(j)
         result.append(
             {
                 "id": j["id"],
