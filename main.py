@@ -428,10 +428,6 @@ async def download_image(
     if job["status"] != "done" or not job.get("output_info"):
         raise HTTPException(status_code=400, detail="Ảnh chưa sẵn sàng")
 
-    _, image_info = _resolve_output_assets(job)
-    if not image_info:
-        raise HTTPException(status_code=400, detail="Job này không có ảnh output")
-
     server_url = None
     for s in config.COMFYUI_SERVERS:
         if s["id"] == job.get("server_id"):
@@ -439,6 +435,23 @@ async def download_image(
             break
     if not server_url:
         raise HTTPException(status_code=500, detail="Server không tìm thấy")
+
+    _, image_info = _resolve_output_assets(job)
+    if not image_info:
+        # Backfill for old rows generated before improved image matching logic.
+        prompt_id = (job.get("prompt_id") or "").strip()
+        if prompt_id:
+            try:
+                history = await comfyui_client.get_history(server_url, prompt_id)
+                output_info = comfyui_client.extract_output_info(history, prompt_id)
+                if output_info and output_info.get("image"):
+                    await db.update_job(job_id, output_info=json.dumps(output_info))
+                    image_info = output_info.get("image")
+            except Exception:
+                image_info = None
+
+    if not image_info:
+        raise HTTPException(status_code=400, detail="Job này không có ảnh output")
 
     params = {
         "filename": image_info["filename"],

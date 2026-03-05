@@ -8,6 +8,7 @@ import json
 import random
 import asyncio
 import logging
+import re
 from datetime import datetime
 
 import httpx
@@ -367,9 +368,26 @@ def _pick_matching_image(video_info: dict | None, image_assets: list[dict]) -> d
     if not video_stem:
         return image_assets[0]
 
+    # 1) Exact basename match first.
     for image in image_assets:
         image_stem = os.path.splitext(image.get("filename", ""))[0].strip().lower()
         if image_stem == video_stem:
+            return image
+
+    # 2) Relaxed match for variants like wan001 vs wan001_00001.
+    def normalize(stem: str) -> str:
+        stem = stem.strip().lower()
+        stem = re.sub(r"[_-]?\d{1,6}$", "", stem)
+        stem = re.sub(r"[_-](final|video|output)$", "", stem)
+        return stem
+
+    video_norm = normalize(video_stem)
+    for image in image_assets:
+        image_stem = os.path.splitext(image.get("filename", ""))[0].strip().lower()
+        image_norm = normalize(image_stem)
+        if image_norm == video_norm:
+            return image
+        if image_norm.startswith(video_norm) or video_norm.startswith(image_norm):
             return image
 
     return image_assets[0]

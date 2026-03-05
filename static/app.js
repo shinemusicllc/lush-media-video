@@ -574,7 +574,7 @@ function getJobHTML(job) {
             Tải
         </button>`;
     }
-    if (job.status === 'done' && job.has_image) {
+    if (job.status === 'done' && (job.has_image || job.has_output)) {
         actionsHTML += `<button class="btn-download" onclick="downloadImage('${job.id}')" title="Tải ảnh output">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -902,6 +902,7 @@ if (state.token) {
 } else {
     showLogin();
 }
+
 
 
 
