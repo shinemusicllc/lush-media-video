@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --surface-0: #0b0f14;
   --surface-1: #0a0e13;
   --surface-2: #111315;
@@ -1412,6 +1412,17 @@ select:focus {
   color: #ced8e9;
 }
 
+.job-workflow-link {
+  cursor: pointer;
+  transition: border-color var(--ease), background-color var(--ease), color var(--ease);
+}
+
+.job-workflow-link:hover {
+  color: #f2f7ff;
+  border-color: rgba(140, 188, 255, 0.62);
+  background: rgba(88, 146, 235, 0.2);
+}
+
 .job-time {
   display: inline-block;
   margin-top: 6px;
@@ -1526,9 +1537,19 @@ select:focus {
   margin-top: 12px;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 10px;
+}
+
+.pagination-nav {
+  margin: 0 auto;
+  display: inline-flex;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+#clear-list-btn {
+  margin-left: auto;
 }
 
 .page-numbers {
@@ -1771,6 +1792,21 @@ select:focus {
 
   .job-actions {
     justify-content: flex-start;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+  }
+
+  .pagination-nav {
+    width: 100%;
+    justify-content: center;
+    margin: 0;
+  }
+
+  #clear-list-btn {
+    margin-left: 0;
+    margin-right: auto;
   }
 }
 

@@ -41,6 +41,8 @@ else:
 # Paths
 # ============================================================
 WORKFLOW_PATH = os.path.join(BASE_DIR, "FULLHD_6S_Loop_API.json")
+# Archive per-job workflow JSON so users can download exactly what was used.
+WORKFLOW_ARCHIVE_DIR = os.environ.get("WORKFLOW_ARCHIVE_DIR", os.path.join(BASE_DIR, "workflows"))
 # Upload path can be mounted to Railway Volume for persistent thumbnails/input files.
 # - local default: ./uploads
 # - production: set UPLOAD_DIR=/data/uploads (mounted volume)

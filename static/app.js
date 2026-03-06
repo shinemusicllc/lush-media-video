@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ComfyUI Bot - Frontend Application
  * Đăng nhập, upload, WebSocket realtime, lọc, phân trang, admin.
  */
@@ -605,7 +605,9 @@ function getJobHTML(job) {
     const showUser = state.role === 'admin' ? `<span class="job-user">${escapeHTML(job.username)}</span>` : '';
     const title = escapeHTML(getJobName(job, shortId));
     const workflowBadge = job.workflow_name
-        ? `<span class="job-workflow" title="${escapeHTML(job.workflow_name)}">${escapeHTML(job.workflow_name)}</span>`
+        ? (job.status === 'done'
+            ? `<button class="job-workflow job-workflow-link" type="button" onclick="downloadWorkflow('${job.id}')" title="Tai workflow: ${escapeHTML(job.workflow_name)}">${escapeHTML(job.workflow_name)}</button>`
+            : `<span class="job-workflow" title="${escapeHTML(job.workflow_name)}">${escapeHTML(job.workflow_name)}</span>`)
         : '';
 
     return `
@@ -693,6 +695,41 @@ function downloadImage(jobId) {
         .catch((err) => alert(`Lỗi tải ảnh: ${err.message}`));
 }
 window.downloadImage = downloadImage;
+
+
+function downloadWorkflow(jobId) {
+    const job = state.jobs.find((j) => j.id === jobId);
+    const fallbackName = sanitizeFilename(job?.workflow_name || 'workflow') + '.json';
+
+    fetch(`/api/jobs/${jobId}/workflow?token=${encodeURIComponent(state.token)}`)
+        .then(async (res) => {
+            if (!res.ok) {
+                let msg = 'Tai workflow that bai';
+                try {
+                    const err = await res.json();
+                    if (err?.detail) msg = err.detail;
+                } catch {}
+                throw new Error(msg);
+            }
+
+            const disposition = res.headers.get('content-disposition') || '';
+            const match = disposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+            const filename = decodeURIComponent((match?.[1] || match?.[2] || fallbackName).trim());
+            return res.blob().then((blob) => ({ blob, filename }));
+        })
+        .then(({ blob, filename }) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        })
+        .catch((err) => alert(`Loi tai workflow: ${err.message}`));
+}
+window.downloadWorkflow = downloadWorkflow;
 
 function connectWS() {
     if (state.ws) state.ws.close();
@@ -883,13 +920,22 @@ function formatTime(ts) {
         const d = new Date(ts);
         if (Number.isNaN(d.getTime())) return ts;
 
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mm = String(d.getMinutes()).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        const mo = String(d.getMonth() + 1).padStart(2, '0');
-        const yy = d.getFullYear();
+        const formatter = new Intl.DateTimeFormat('vi-VN', {
+            timeZone: 'Asia/Ho_Chi_Minh',
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        });
 
-        return `${hh}:${mm} ${dd}/${mo}/${yy}`;
+        const parts = {};
+        formatter.formatToParts(d).forEach((part) => {
+            if (part.type !== 'literal') parts[part.type] = part.value;
+        });
+
+        return `${parts.hour}:${parts.minute} ${parts.day}/${parts.month}/${parts.year}`;
     } catch {
         return ts;
     }

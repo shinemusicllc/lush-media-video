@@ -35,6 +35,7 @@ async def init_db():
                 job_name      TEXT,
                 video_name    TEXT,
                 workflow_name TEXT,
+                workflow_file TEXT,
                 output_info   TEXT,
                 created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 completed_at  TIMESTAMP,
@@ -49,6 +50,8 @@ async def init_db():
             await conn.execute("ALTER TABLE jobs ADD COLUMN video_name TEXT")
         if not await _column_exists(conn, "jobs", "workflow_name"):
             await conn.execute("ALTER TABLE jobs ADD COLUMN workflow_name TEXT")
+        if not await _column_exists(conn, "jobs", "workflow_file"):
+            await conn.execute("ALTER TABLE jobs ADD COLUMN workflow_file TEXT")
 
         # Keep old rows searchable by the new job_name field.
         await conn.execute(
@@ -99,14 +102,15 @@ async def create_job(
     input_image: str,
     job_name: str | None = None,
     workflow_name: str | None = None,
+    workflow_file: str | None = None,
 ):
     async with aiosqlite.connect(DB_PATH) as conn:
         await conn.execute(
             """
             INSERT INTO jobs (
-                id, user_id, username, input_image, job_name, video_name, workflow_name
+                id, user_id, username, input_image, job_name, video_name, workflow_name, workflow_file
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_id,
@@ -116,6 +120,7 @@ async def create_job(
                 job_name,
                 job_name,
                 workflow_name,
+                workflow_file,
             ),
         )
         await conn.commit()

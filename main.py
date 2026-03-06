@@ -83,6 +83,7 @@ def _resolve_output_assets(job_row: dict) -> tuple[dict | None, dict | None]:
 @app.on_event("startup")
 async def startup():
     os.makedirs(config.UPLOAD_DIR, exist_ok=True)
+    os.makedirs(config.WORKFLOW_ARCHIVE_DIR, exist_ok=True)
     db_dir = os.path.dirname(config.DB_PATH)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
@@ -222,6 +223,20 @@ async def create_job(
 
         workflow_name = Path(workflow_file.filename).name
 
+    # Snapshot workflow used by this job so it can be downloaded from job list later.
+    workflow_payload = workflow_data
+    if workflow_payload is None:
+        with open(config.WORKFLOW_PATH, "r", encoding="utf-8-sig") as wf:
+            workflow_payload = json.load(wf)
+
+    if not isinstance(workflow_payload, dict):
+        raise HTTPException(status_code=500, detail="Workflow snapshot khong hop le")
+
+    workflow_archive_file = f"{job_id}.json"
+    workflow_archive_path = os.path.join(config.WORKFLOW_ARCHIVE_DIR, workflow_archive_file)
+    with open(workflow_archive_path, "w", encoding="utf-8") as wf:
+        json.dump(workflow_payload, wf, ensure_ascii=False, indent=2)
+
     # Submit vào load balancer
     await balancer.submit_job(
         job_id=job_id,
@@ -231,6 +246,7 @@ async def create_job(
         image_filename=safe_filename,
         job_name=clean_job_name,
         workflow_name=workflow_name,
+        workflow_file=workflow_archive_file,
         workflow_data=workflow_data,
     )
 
@@ -299,6 +315,8 @@ async def list_jobs(user: dict = Depends(get_current_user)):
                 "job_name": _resolve_job_name(j),
                 "video_name": _resolve_job_name(j),
                 "workflow_name": j.get("workflow_name"),
+                "workflow_file": j.get("workflow_file"),
+                "has_workflow": bool(j.get("workflow_file") or j.get("workflow_name")),
                 "created_at": j["created_at"],
                 "completed_at": j.get("completed_at"),
                 "has_output": j.get("output_info") is not None,
@@ -352,6 +370,58 @@ async def clear_jobs(scope: str = "mine", user: dict = Depends(get_current_user)
 
     deleted = await db.clear_jobs_for_user(user["username"])
     return {"status": "cleared", "scope": "mine", "deleted": deleted}
+
+
+@app.get("/api/jobs/{job_id}/workflow")
+async def download_workflow(
+    job_id: str,
+    token: str = "",
+    authorization: str | None = Header(default=None),
+):
+    """Download the exact workflow JSON used to create this job."""
+    user = None
+    access_token = (token or "").strip()
+
+    if not access_token and authorization:
+        parts = authorization.strip().split(" ", 1)
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            access_token = parts[1].strip()
+
+    if access_token:
+        try:
+            payload = decode_token(access_token)
+            user = await db.get_user(payload["sub"])
+        except Exception:
+            user = None
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Chua dang nhap")
+
+    job = await db.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job khong ton tai")
+    if job["username"] != user["username"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Khong co quyen")
+
+    workflow_name = (job.get("workflow_name") or "workflow.json").strip() or "workflow.json"
+    if not workflow_name.lower().endswith(".json"):
+        workflow_name += ".json"
+
+    workflow_path = ""
+    workflow_file = (job.get("workflow_file") or "").strip()
+    if workflow_file:
+        candidate = os.path.join(config.WORKFLOW_ARCHIVE_DIR, workflow_file)
+        if os.path.exists(candidate):
+            workflow_path = candidate
+
+    # Backward compatibility for old rows that do not have archived workflow_file yet.
+    if not workflow_path and os.path.exists(config.WORKFLOW_PATH):
+        workflow_path = config.WORKFLOW_PATH
+
+    if not workflow_path:
+        raise HTTPException(status_code=404, detail="Workflow khong tim thay")
+
+    return FileResponse(workflow_path, media_type="application/json", filename=workflow_name)
 
 
 @app.get("/api/jobs/{job_id}/video")

@@ -91,6 +91,7 @@ class LoadBalancer:
         image_filename: str,
         job_name: str | None = None,
         workflow_name: str | None = None,
+        workflow_file: str | None = None,
         workflow_data: dict | None = None,
     ):
         """Submit job mới — round-robin phân bổ giữa các server."""
@@ -105,6 +106,7 @@ class LoadBalancer:
             image_filename,
             job_name=job_name,
             workflow_name=workflow_name,
+            workflow_file=workflow_file,
         )
         await db.update_job(job_id, server_id=server.id)
 
@@ -337,6 +339,7 @@ class LoadBalancer:
                 "job_name": self._resolve_job_name(job),
                 "video_name": self._resolve_job_name(job),
                 "workflow_name": job.get("workflow_name"),
+                "workflow_file": job.get("workflow_file"),
                 "created_at": job["created_at"],
                 "completed_at": job.get("completed_at"),
                 "has_output": job.get("output_info") is not None,
