@@ -77,6 +77,28 @@ def _resolve_output_assets(job_row: dict) -> tuple[dict | None, dict | None]:
     return None, None
 
 
+def _resolve_workflow_snapshot(job_row: dict) -> tuple[str | None, str | None]:
+    """Resolve persisted per-job workflow snapshot path (supports legacy <job_id>.json)."""
+    candidates: list[str] = []
+
+    workflow_file = (job_row.get("workflow_file") or "").strip()
+    if workflow_file:
+        candidates.append(workflow_file)
+
+    job_id = str(job_row.get("id") or "").strip()
+    if job_id:
+        legacy_name = f"{job_id}.json"
+        if legacy_name not in candidates:
+            candidates.append(legacy_name)
+
+    for rel_path in candidates:
+        abs_path = os.path.join(config.WORKFLOW_ARCHIVE_DIR, rel_path)
+        if os.path.exists(abs_path):
+            return rel_path, abs_path
+
+    return None, None
+
+
 # ── Startup / Shutdown ──────────────────────────────────────
 
 
@@ -302,6 +324,8 @@ async def list_jobs(user: dict = Depends(get_current_user)):
                 pass
 
         video_info, image_info = _resolve_output_assets(j)
+        workflow_file, _ = _resolve_workflow_snapshot(j)
+
         result.append(
             {
                 "id": j["id"],
@@ -315,8 +339,8 @@ async def list_jobs(user: dict = Depends(get_current_user)):
                 "job_name": _resolve_job_name(j),
                 "video_name": _resolve_job_name(j),
                 "workflow_name": j.get("workflow_name"),
-                "workflow_file": j.get("workflow_file"),
-                "has_workflow": bool(j.get("workflow_file")),
+                "workflow_file": workflow_file,
+                "has_workflow": bool(workflow_file),
                 "created_at": j["created_at"],
                 "completed_at": j.get("completed_at"),
                 "has_output": j.get("output_info") is not None,
@@ -407,12 +431,8 @@ async def download_workflow(
     if not workflow_name.lower().endswith(".json"):
         workflow_name += ".json"
 
-    workflow_file = (job.get("workflow_file") or "").strip()
-    if not workflow_file:
-        raise HTTPException(status_code=404, detail="Job nay chua co workflow snapshot")
-
-    workflow_path = os.path.join(config.WORKFLOW_ARCHIVE_DIR, workflow_file)
-    if not os.path.exists(workflow_path):
+    workflow_file, workflow_path = _resolve_workflow_snapshot(job)
+    if not workflow_path:
         raise HTTPException(status_code=404, detail="Workflow snapshot khong tim thay")
 
     return FileResponse(workflow_path, media_type="application/json", filename=workflow_name)

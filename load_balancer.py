@@ -10,6 +10,7 @@ import logging
 import os
 from datetime import datetime, timezone
 
+import config
 from config import COMFYUI_SERVERS
 import comfyui_client
 import database as db
@@ -325,6 +326,15 @@ class LoadBalancer:
 
         video_info, image_info = self._resolve_output_assets(job)
 
+        workflow_file = (job.get("workflow_file") or "").strip()
+        if not workflow_file:
+            job_id = str(job.get("id") or "").strip()
+            if job_id:
+                legacy_name = f"{job_id}.json"
+                legacy_path = os.path.join(config.WORKFLOW_ARCHIVE_DIR, legacy_name)
+                if os.path.exists(legacy_path):
+                    workflow_file = legacy_name
+
         return {
             "type": "job_update",
             "job": {
@@ -339,8 +349,8 @@ class LoadBalancer:
                 "job_name": self._resolve_job_name(job),
                 "video_name": self._resolve_job_name(job),
                 "workflow_name": job.get("workflow_name"),
-                "workflow_file": job.get("workflow_file"),
-                "has_workflow": bool(job.get("workflow_file")),
+                "workflow_file": workflow_file,
+                "has_workflow": bool(workflow_file),
                 "created_at": job["created_at"],
                 "completed_at": job.get("completed_at"),
                 "has_output": job.get("output_info") is not None,

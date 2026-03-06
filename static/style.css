@@ -1533,23 +1533,28 @@ select:focus {
   height: 14px;
 }
 
-.pagination {
+.queue-card .pagination {
   margin-top: 12px;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
 }
 
-.pagination-nav {
-  margin: 0 auto;
+.queue-card .pagination-nav {
+  grid-column: 2;
+  justify-self: center;
+  margin: 0;
   display: inline-flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-#clear-list-btn {
-  margin-left: auto;
+.queue-card #clear-list-btn {
+  grid-column: 3;
+  justify-self: end;
+  margin: 0;
 }
 
 .page-numbers {
@@ -1794,19 +1799,23 @@ select:focus {
     justify-content: flex-start;
   }
 
-  .pagination {
-    flex-wrap: wrap;
+  .queue-card .pagination {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    row-gap: 8px;
   }
 
-  .pagination-nav {
+  .queue-card .pagination-nav {
+    grid-column: 1;
     width: 100%;
     justify-content: center;
     margin: 0;
   }
 
-  #clear-list-btn {
-    margin-left: 0;
-    margin-right: auto;
+  .queue-card #clear-list-btn {
+    grid-column: 1;
+    justify-self: center;
+    margin: 0;
   }
 }
 
