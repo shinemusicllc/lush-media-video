@@ -605,7 +605,7 @@ function getJobHTML(job) {
     const showUser = state.role === 'admin' ? `<span class="job-user">${escapeHTML(job.username)}</span>` : '';
     const title = escapeHTML(getJobName(job, shortId));
     const workflowBadge = job.workflow_name
-        ? (job.status === 'done'
+        ? ((job.status === 'done' && Boolean(job.workflow_file || job.has_workflow))
             ? `<button class="job-workflow job-workflow-link" type="button" onclick="downloadWorkflow('${job.id}')" title="Tai workflow: ${escapeHTML(job.workflow_name)}">${escapeHTML(job.workflow_name)}</button>`
             : `<span class="job-workflow" title="${escapeHTML(job.workflow_name)}">${escapeHTML(job.workflow_name)}</span>`)
         : '';

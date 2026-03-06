@@ -316,7 +316,7 @@ async def list_jobs(user: dict = Depends(get_current_user)):
                 "video_name": _resolve_job_name(j),
                 "workflow_name": j.get("workflow_name"),
                 "workflow_file": j.get("workflow_file"),
-                "has_workflow": bool(j.get("workflow_file") or j.get("workflow_name")),
+                "has_workflow": bool(j.get("workflow_file")),
                 "created_at": j["created_at"],
                 "completed_at": j.get("completed_at"),
                 "has_output": j.get("output_info") is not None,
@@ -407,19 +407,13 @@ async def download_workflow(
     if not workflow_name.lower().endswith(".json"):
         workflow_name += ".json"
 
-    workflow_path = ""
     workflow_file = (job.get("workflow_file") or "").strip()
-    if workflow_file:
-        candidate = os.path.join(config.WORKFLOW_ARCHIVE_DIR, workflow_file)
-        if os.path.exists(candidate):
-            workflow_path = candidate
+    if not workflow_file:
+        raise HTTPException(status_code=404, detail="Job nay chua co workflow snapshot")
 
-    # Backward compatibility for old rows that do not have archived workflow_file yet.
-    if not workflow_path and os.path.exists(config.WORKFLOW_PATH):
-        workflow_path = config.WORKFLOW_PATH
-
-    if not workflow_path:
-        raise HTTPException(status_code=404, detail="Workflow khong tim thay")
+    workflow_path = os.path.join(config.WORKFLOW_ARCHIVE_DIR, workflow_file)
+    if not os.path.exists(workflow_path):
+        raise HTTPException(status_code=404, detail="Workflow snapshot khong tim thay")
 
     return FileResponse(workflow_path, media_type="application/json", filename=workflow_name)
 
@@ -790,3 +784,4 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+

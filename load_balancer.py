@@ -340,6 +340,7 @@ class LoadBalancer:
                 "video_name": self._resolve_job_name(job),
                 "workflow_name": job.get("workflow_name"),
                 "workflow_file": job.get("workflow_file"),
+                "has_workflow": bool(job.get("workflow_file")),
                 "created_at": job["created_at"],
                 "completed_at": job.get("completed_at"),
                 "has_output": job.get("output_info") is not None,

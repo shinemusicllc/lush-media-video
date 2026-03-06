@@ -8,6 +8,18 @@ import secrets
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+def _default_persist_base() -> str:
+    """Prefer Railway mounted volume when available."""
+    if os.environ.get("PERSIST_BASE_DIR"):
+        return os.environ["PERSIST_BASE_DIR"]
+    if os.path.isdir("/data"):
+        return "/data"
+    return BASE_DIR
+
+
+PERSIST_BASE_DIR = _default_persist_base()
+
 # ============================================================
 # ComfyUI Servers
 # DEV  : http://127.0.0.1:8188 (mặc định)
@@ -42,15 +54,15 @@ else:
 # ============================================================
 WORKFLOW_PATH = os.path.join(BASE_DIR, "FULLHD_6S_Loop_API.json")
 # Archive per-job workflow JSON so users can download exactly what was used.
-WORKFLOW_ARCHIVE_DIR = os.environ.get("WORKFLOW_ARCHIVE_DIR", os.path.join(BASE_DIR, "workflows"))
+WORKFLOW_ARCHIVE_DIR = os.environ.get("WORKFLOW_ARCHIVE_DIR", os.path.join(PERSIST_BASE_DIR, "workflows"))
 # Upload path can be mounted to Railway Volume for persistent thumbnails/input files.
 # - local default: ./uploads
 # - production: set UPLOAD_DIR=/data/uploads (mounted volume)
-UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(BASE_DIR, "uploads"))
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(PERSIST_BASE_DIR, "uploads"))
 # Railway volume-friendly DB path:
 # - local default: ./comfybot.db
 # - production: set DB_PATH=/data/comfybot.db (mounted volume)
-DB_PATH = os.environ.get("DB_PATH", os.path.join(BASE_DIR, "comfybot.db"))
+DB_PATH = os.environ.get("DB_PATH", os.path.join(PERSIST_BASE_DIR, "comfybot.db"))
 
 # ============================================================
 # JWT Authentication
@@ -74,3 +86,4 @@ WORKFLOW_DEFAULTS = {
     "height": 1088,
     "length": 73,  # frames
 }
+
