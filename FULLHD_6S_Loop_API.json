@@ -321,7 +321,7 @@
   "169": {
     "inputs": {
       "width": 1920,
-      "height": 1088,
+      "height": 1080,
       "length": 73,
       "batch_size": 1,
       "positive": [
