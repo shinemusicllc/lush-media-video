@@ -76,8 +76,8 @@ def build_prompt(
 ) -> dict:
     """
     Load workflow JSON và patch input nodes.
-    Chỉ thay đổi: image, seed, filename_prefix.
-    Resolution/prompt giữ cố định. Thời lượng lấy theo workflow.
+    Chỉ thay đổi: image, seed, filename_prefix, width, height.
+    Positive/negative prompt và thời lượng lấy theo workflow JSON.
     """
     if workflow_data is not None:
         # Deep-copy to avoid mutating payload shared across jobs.
@@ -104,6 +104,7 @@ def build_prompt(
             inputs["image"] = image_name
             patched_image = True
 
+        # Do not mutate prompt text nodes; prompt content must come from the workflow.
         if "width" in inputs:
             inputs["width"] = WORKFLOW_DEFAULTS["width"]
         if "height" in inputs:
