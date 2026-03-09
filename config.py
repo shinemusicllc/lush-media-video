@@ -84,6 +84,5 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 WORKFLOW_DEFAULTS = {
     "width": 1920,
     "height": 1080,
-    "length": 73,  # frames
 }
 

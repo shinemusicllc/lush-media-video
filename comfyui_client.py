@@ -77,7 +77,7 @@ def build_prompt(
     """
     Load workflow JSON và patch input nodes.
     Chỉ thay đổi: image, seed, filename_prefix.
-    Resolution/frames/prompt giữ cố định.
+    Resolution/prompt giữ cố định. Thời lượng lấy theo workflow.
     """
     if workflow_data is not None:
         # Deep-copy to avoid mutating payload shared across jobs.
@@ -108,8 +108,6 @@ def build_prompt(
             inputs["width"] = WORKFLOW_DEFAULTS["width"]
         if "height" in inputs:
             inputs["height"] = WORKFLOW_DEFAULTS["height"]
-        if "length" in inputs:
-            inputs["length"] = WORKFLOW_DEFAULTS["length"]
 
         if "noise_seed" in inputs:
             seed_nodes.append(inputs)
