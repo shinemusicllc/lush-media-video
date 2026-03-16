@@ -24,6 +24,9 @@ const dashboardView = $('#dashboard-view');
 const loginForm = $('#login-form');
 const loginError = $('#login-error');
 const loginBtn = $('#login-btn');
+const loginUsernameInput = $('#login-username');
+const loginPasswordInput = $('#login-password');
+let loginAutofillLocked = false;
 
 const dropZone = $('#drop-zone');
 const fileInput = $('#file-input');
@@ -186,6 +189,29 @@ function showDashboard() {
     connectWS();
 }
 
+function lockLoginAutofillReplay() {
+    if (loginAutofillLocked) return;
+    loginAutofillLocked = true;
+
+    if (loginUsernameInput) {
+        loginUsernameInput.setAttribute('autocomplete', 'off');
+        loginUsernameInput.setAttribute('data-form-type', 'other');
+    }
+
+    if (loginPasswordInput) {
+        loginPasswordInput.setAttribute('autocomplete', 'new-password');
+        loginPasswordInput.setAttribute('data-form-type', 'other');
+    }
+}
+
+function initLoginInputs() {
+    [loginUsernameInput, loginPasswordInput].forEach((input) => {
+        if (!input) return;
+        input.addEventListener('input', lockLoginAutofillReplay);
+        input.addEventListener('keydown', lockLoginAutofillReplay, { once: true });
+    });
+}
+
 loginForm?.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -229,6 +255,7 @@ loginForm?.addEventListener('submit', async (e) => {
 });
 
 logoutBtn?.addEventListener('click', logout);
+initLoginInputs();
 
 function updateWorkflowUI() {
     if (state.selectedWorkflowFile) {
