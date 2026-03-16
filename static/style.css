@@ -560,7 +560,8 @@ select:focus {
 }
 
 #login-form input::placeholder {
-  color: #8da0ba !important;
+  color: rgba(109, 123, 146, 0.62) !important;
+  -webkit-text-fill-color: rgba(109, 123, 146, 0.62) !important;
   opacity: 1;
 }
 
