@@ -204,11 +204,29 @@ function lockLoginAutofillReplay() {
     }
 }
 
+function selectAllLoginInput(input) {
+    if (!input) return;
+    requestAnimationFrame(() => {
+        input.focus();
+        input.select();
+    });
+}
+
 function initLoginInputs() {
     [loginUsernameInput, loginPasswordInput].forEach((input) => {
         if (!input) return;
         input.addEventListener('input', lockLoginAutofillReplay);
         input.addEventListener('keydown', lockLoginAutofillReplay, { once: true });
+        input.addEventListener('dblclick', () => selectAllLoginInput(input));
+        input.addEventListener('click', (e) => {
+            if (e.detail >= 2) selectAllLoginInput(input);
+        });
+        input.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+                e.preventDefault();
+                selectAllLoginInput(input);
+            }
+        });
     });
 }
 
