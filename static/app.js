@@ -651,23 +651,13 @@ window.deleteJob = deleteJob;
 function downloadVideo(jobId) {
     const job = state.jobs.find((j) => j.id === jobId);
     const baseName = sanitizeFilename(getJobName(job, jobId.substring(0, 8)));
-
-    fetch(`/api/jobs/${jobId}/video?token=${encodeURIComponent(state.token)}`)
-        .then((res) => {
-            if (!res.ok) throw new Error('Tải video thất bại');
-            return res.blob();
-        })
-        .then((blob) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${baseName}.mp4`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        })
-        .catch((err) => alert(`Lỗi tải video: ${err.message}`));
+    const a = document.createElement('a');
+    a.href = `/api/jobs/${jobId}/video?token=${encodeURIComponent(state.token)}`;
+    a.download = `${baseName}.mp4`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 window.downloadVideo = downloadVideo;
 
