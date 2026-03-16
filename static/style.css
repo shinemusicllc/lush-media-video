@@ -545,20 +545,31 @@ select:focus {
   border-color: rgba(184, 206, 240, 0.9);
   background: rgba(236, 245, 255, 0.96);
   padding: 0 14px;
-  color: #0f1c34 !important;
-  -webkit-text-fill-color: #0f1c34 !important;
+  color: #5f7391 !important;
+  -webkit-text-fill-color: #5f7391 !important;
+  font-weight: 500;
   color-scheme: light;
 }
 
 #login-form input:focus {
   border-color: rgba(245, 187, 116, 0.95);
   background: #ffffff;
+  color: #233654 !important;
+  -webkit-text-fill-color: #233654 !important;
   box-shadow: 0 0 0 3px rgba(245, 187, 116, 0.26);
 }
 
 #login-form input::placeholder {
-  color: #6f7f99 !important;
+  color: #8da0ba !important;
   opacity: 1;
+}
+
+#login-form input:-webkit-autofill,
+#login-form input:-webkit-autofill:hover,
+#login-form input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #6c7f9a !important;
+  box-shadow: 0 0 0 1000px rgba(236, 245, 255, 0.96) inset;
+  transition: background-color 9999s ease-in-out 0s;
 }
 
 .app-shell {
