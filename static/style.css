@@ -554,8 +554,8 @@ select:focus {
 #login-form input:focus {
   border-color: rgba(245, 187, 116, 0.95);
   background: #ffffff;
-  color: #233654 !important;
-  -webkit-text-fill-color: #233654 !important;
+  color: #161f2d !important;
+  -webkit-text-fill-color: #161f2d !important;
   box-shadow: 0 0 0 3px rgba(245, 187, 116, 0.26);
 }
 
@@ -567,8 +567,10 @@ select:focus {
 #login-form input:-webkit-autofill,
 #login-form input:-webkit-autofill:hover,
 #login-form input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #6c7f9a !important;
+  -webkit-text-fill-color: #161f2d !important;
   box-shadow: 0 0 0 1000px rgba(236, 245, 255, 0.96) inset;
+  caret-color: #161f2d;
+  font-weight: 600;
   transition: background-color 9999s ease-in-out 0s;
 }
 
