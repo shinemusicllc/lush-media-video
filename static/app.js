@@ -204,6 +204,32 @@ function lockLoginAutofillReplay() {
     }
 }
 
+function hardenLoginInput(input, nextName, nextAutocomplete) {
+    if (!input) return;
+    input.name = nextName;
+    input.setAttribute('autocomplete', nextAutocomplete);
+    input.setAttribute('data-form-type', 'other');
+    input.setAttribute('data-lpignore', 'true');
+    input.setAttribute('data-1p-ignore', 'true');
+    input.setAttribute('data-bwignore', 'true');
+}
+
+function freezeInitialAutofill() {
+    const autofilledInputs = [loginUsernameInput, loginPasswordInput].filter(
+        (input) => input && String(input.value || '').trim()
+    );
+
+    if (!autofilledInputs.length) return;
+
+    autofilledInputs.forEach((input) => {
+        input.dataset.autofilledOnce = '1';
+    });
+
+    lockLoginAutofillReplay();
+    hardenLoginInput(loginUsernameInput, 'comfyui_login_user', 'off');
+    hardenLoginInput(loginPasswordInput, 'comfyui_login_pass', 'new-password');
+}
+
 function selectAllLoginInput(input) {
     if (!input) return;
     requestAnimationFrame(() => {
@@ -217,6 +243,11 @@ function initLoginInputs() {
         if (!input) return;
         input.addEventListener('input', lockLoginAutofillReplay);
         input.addEventListener('keydown', lockLoginAutofillReplay, { once: true });
+        input.addEventListener('focus', () => {
+            if (input.dataset.autofilledOnce === '1') {
+                selectAllLoginInput(input);
+            }
+        });
         input.addEventListener('dblclick', () => selectAllLoginInput(input));
         input.addEventListener('click', (e) => {
             if (e.detail >= 2) selectAllLoginInput(input);
@@ -228,6 +259,11 @@ function initLoginInputs() {
             }
         });
     });
+
+    setTimeout(freezeInitialAutofill, 250);
+    window.addEventListener('load', () => {
+        setTimeout(freezeInitialAutofill, 100);
+    }, { once: true });
 }
 
 loginForm?.addEventListener('submit', async (e) => {
