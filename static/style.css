@@ -565,6 +565,17 @@ select:focus {
   opacity: 1;
 }
 
+#login-form input::selection {
+  background: rgba(107, 161, 255, 0.38);
+  color: #0d1828;
+  -webkit-text-fill-color: #0d1828;
+}
+
+#login-form input::-moz-selection {
+  background: rgba(107, 161, 255, 0.38);
+  color: #0d1828;
+}
+
 #login-form input:-webkit-autofill,
 #login-form input:-webkit-autofill:hover,
 #login-form input:-webkit-autofill:focus {
