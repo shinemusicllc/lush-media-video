@@ -144,22 +144,41 @@ async def get_job(job_id: str) -> dict | None:
             return dict(row) if row else None
 
 
-async def get_user_jobs(username: str, limit: int = 50) -> list:
+async def get_user_jobs(username: str, limit: int | None = 50) -> list:
     async with aiosqlite.connect(DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-        async with conn.execute(
-            "SELECT * FROM jobs WHERE username = ? ORDER BY created_at DESC LIMIT ?",
-            (username, limit),
-        ) as cur:
+        if limit is None:
+            query = "SELECT * FROM jobs WHERE username = ? ORDER BY created_at DESC"
+            params = (username,)
+        else:
+            query = "SELECT * FROM jobs WHERE username = ? ORDER BY created_at DESC LIMIT ?"
+            params = (username, limit)
+        async with conn.execute(query, params) as cur:
             return [dict(r) for r in await cur.fetchall()]
 
 
-async def get_all_jobs(limit: int = 100) -> list:
+async def get_all_jobs(limit: int | None = 100) -> list:
     async with aiosqlite.connect(DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
-        async with conn.execute(
-            "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?", (limit,)
-        ) as cur:
+        if limit is None:
+            query = "SELECT * FROM jobs ORDER BY created_at DESC"
+            params = ()
+        else:
+            query = "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?"
+            params = (limit,)
+        async with conn.execute(query, params) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
+async def get_jobs_by_ids(job_ids: list[str]) -> list:
+    if not job_ids:
+        return []
+
+    placeholders = ", ".join("?" for _ in job_ids)
+    query = f"SELECT * FROM jobs WHERE id IN ({placeholders})"
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        async with conn.execute(query, tuple(job_ids)) as cur:
             return [dict(r) for r in await cur.fetchall()]
 
 
@@ -167,6 +186,18 @@ async def delete_job(job_id: str):
     async with aiosqlite.connect(DB_PATH) as conn:
         await conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
         await conn.commit()
+
+
+async def delete_jobs_by_ids(job_ids: list[str]) -> int:
+    if not job_ids:
+        return 0
+
+    placeholders = ", ".join("?" for _ in job_ids)
+    query = f"DELETE FROM jobs WHERE id IN ({placeholders})"
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute(query, tuple(job_ids))
+        await conn.commit()
+        return cur.rowcount
 
 
 async def clear_jobs_for_user(username: str) -> int:

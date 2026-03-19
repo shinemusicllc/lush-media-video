@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Lush Media data backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:37:00
+Persistent=true
+Unit=lush-media-backup.service
+
+[Install]
+WantedBy=timers.target

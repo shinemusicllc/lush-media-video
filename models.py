@@ -22,6 +22,10 @@ class TokenResponse(BaseModel):
     role: str
 
 
+class JobClearRequest(BaseModel):
+    job_ids: list[str] = []
+
+
 class JobResponse(BaseModel):
     id: str
     username: str

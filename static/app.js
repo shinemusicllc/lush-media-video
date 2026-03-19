@@ -10,6 +10,7 @@ const state = {
     username: localStorage.getItem('username') || null,
     role: localStorage.getItem('role') || null,
     jobs: [],
+    currentPageJobs: [],
     ws: null,
     selectedFile: null,
     selectedWorkflowFile: null,
@@ -524,17 +525,28 @@ filterClear?.addEventListener('click', () => {
 
 clearListBtn?.addEventListener('click', async () => {
     try {
-        const isAdmin = state.role === 'admin';
-        const msg = isAdmin
-            ? 'Xóa toàn bộ job list trên hệ thống?'
-            : 'Xóa toàn bộ job của bạn khỏi danh sách?';
+        const pageJobIds = (state.currentPageJobs || []).map((job) => job.id);
+        if (!pageJobIds.length) {
+            alert('Trang hiện tại không có job để xóa.');
+            return;
+        }
+
+        const msg = 'Xóa các job trong trang hiện tại? Thao tác này sẽ xóa job khỏi danh sách và dọn file local trên VPS (ảnh input + workflow snapshot).';
         if (!confirm(msg)) return;
 
-        const scope = isAdmin ? 'all' : 'mine';
-        const res = await api(`/api/jobs/clear?scope=${scope}`, { method: 'POST' });
+        const res = await api('/api/jobs/clear?scope=mine', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ job_ids: pageJobIds }),
+        });
         if (!res.ok) {
             const err = await res.json();
             throw new Error(err.detail || 'Clear list thất bại');
+        }
+
+        const payload = await res.json();
+        if (payload.skipped_running?.length) {
+            alert(`Đã xóa ${payload.deleted} job trong trang hiện tại. Bỏ qua ${payload.skipped_running.length} job đang chạy.`);
         }
 
         await loadJobs();
@@ -550,6 +562,7 @@ function renderJobs() {
 
     const start = (state.currentPage - 1) * JOBS_PER_PAGE;
     const pageJobs = filtered.slice(start, start + JOBS_PER_PAGE);
+    state.currentPageJobs = pageJobs;
 
     if (jobCount) jobCount.textContent = `${filtered.length} jobs`;
     updateHeroStats();
@@ -557,6 +570,7 @@ function renderJobs() {
     jobsList.querySelectorAll('.job-item').forEach((el) => el.remove());
 
     if (filtered.length === 0) {
+        state.currentPageJobs = [];
         jobsEmpty.style.display = '';
         pagination.style.display = 'none';
         return;
@@ -986,12 +1000,34 @@ function truncate(str, len) {
     return str.length > len ? `${str.substring(0, len)}...` : str;
 }
 
+function parseJobTimestamp(ts) {
+    if (!ts) return null;
+
+    const raw = String(ts).trim();
+    if (!raw) return null;
+
+    const hasTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(raw);
+    let normalized = raw;
+
+    if (!hasTimezone && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(raw)) {
+        normalized = `${raw.replace(' ', 'T')}Z`;
+    } else if (!hasTimezone && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(raw)) {
+        normalized = `${raw}Z`;
+    }
+
+    const parsed = new Date(normalized);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+    return parsed;
+}
+
 function formatTime(ts) {
     if (!ts) return '';
 
     try {
-        const d = new Date(ts);
-        if (Number.isNaN(d.getTime())) return ts;
+        const d = parseJobTimestamp(ts);
+        if (!d) return ts;
 
         const formatter = new Intl.DateTimeFormat('vi-VN', {
             timeZone: 'Asia/Ho_Chi_Minh',

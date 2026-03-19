@@ -1,0 +1,10 @@
+[Unit]
+Description=Lush Media data backup
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+WorkingDirectory=/opt/lush-media-video/app/deploy
+ExecStart=/opt/lush-media-video/app/deploy/scripts/backup_data.sh

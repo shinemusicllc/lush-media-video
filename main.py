@@ -35,7 +35,7 @@ from auth import (
     require_admin,
     decode_token,
 )
-from models import UserLogin, UserCreate, TokenResponse
+from models import JobClearRequest, TokenResponse, UserCreate, UserLogin
 import httpx
 from load_balancer import balancer
 import comfyui_client
@@ -97,6 +97,42 @@ def _resolve_workflow_snapshot(job_row: dict) -> tuple[str | None, str | None]:
             return rel_path, abs_path
 
     return None, None
+
+
+def _safe_remove_file(path: str | None) -> bool:
+    if not path or not os.path.exists(path):
+        return False
+    try:
+        os.remove(path)
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def _delete_job_local_files(job_row: dict) -> dict[str, int]:
+    removed = {"uploads": 0, "workflows": 0}
+
+    input_name = (job_row.get("input_image") or "").strip()
+    if input_name:
+        upload_path = os.path.join(config.UPLOAD_DIR, input_name)
+        if _safe_remove_file(upload_path):
+            removed["uploads"] += 1
+
+    workflow_candidates: set[str] = set()
+    workflow_file = (job_row.get("workflow_file") or "").strip()
+    if workflow_file:
+        workflow_candidates.add(workflow_file)
+
+    job_id = str(job_row.get("id") or "").strip()
+    if job_id:
+        workflow_candidates.add(f"{job_id}.json")
+
+    for rel_path in workflow_candidates:
+        workflow_path = os.path.join(config.WORKFLOW_ARCHIVE_DIR, rel_path)
+        if _safe_remove_file(workflow_path):
+            removed["workflows"] += 1
+
+    return removed
 
 
 # ── Startup / Shutdown ──────────────────────────────────────
@@ -371,12 +407,17 @@ async def delete_job(job_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Không có quyền")
     if job["status"] == "running":
         raise HTTPException(status_code=400, detail="Không thể xóa job đang chạy")
+    removed_files = _delete_job_local_files(job)
     await db.delete_job(job_id)
-    return {"status": "deleted"}
+    return {"status": "deleted", "removed_files": removed_files}
 
 
 @app.post("/api/jobs/clear")
-async def clear_jobs(scope: str = "mine", user: dict = Depends(get_current_user)):
+async def clear_jobs(
+    payload: JobClearRequest | None = None,
+    scope: str = "mine",
+    user: dict = Depends(get_current_user),
+):
     """
     Clear list jobs:
     - scope=mine (default): clear current user jobs
@@ -389,11 +430,81 @@ async def clear_jobs(scope: str = "mine", user: dict = Depends(get_current_user)
     if scope == "all":
         if user["role"] != "admin":
             raise HTTPException(status_code=403, detail="Không có quyền")
-        deleted = await db.clear_all_jobs()
-        return {"status": "cleared", "scope": "all", "deleted": deleted}
 
-    deleted = await db.clear_jobs_for_user(user["username"])
-    return {"status": "cleared", "scope": "mine", "deleted": deleted}
+    requested_ids: list[str] = []
+    if payload and payload.job_ids:
+        seen: set[str] = set()
+        for raw_id in payload.job_ids:
+            job_id = str(raw_id or "").strip()
+            if job_id and job_id not in seen:
+                requested_ids.append(job_id)
+                seen.add(job_id)
+
+    if requested_ids:
+        candidate_jobs = await db.get_jobs_by_ids(requested_ids)
+        jobs_by_id = {job["id"]: job for job in candidate_jobs}
+
+        authorized_jobs: list[dict] = []
+        for requested_id in requested_ids:
+            job = jobs_by_id.get(requested_id)
+            if not job:
+                continue
+            if scope == "mine" and job["username"] != user["username"]:
+                continue
+            if user["role"] != "admin" and job["username"] != user["username"]:
+                continue
+            authorized_jobs.append(job)
+
+        skipped_running = [job["id"] for job in authorized_jobs if job["status"] == "running"]
+        deletable_jobs = [job for job in authorized_jobs if job["status"] != "running"]
+
+        removed_uploads = 0
+        removed_workflows = 0
+        for job in deletable_jobs:
+            removed = _delete_job_local_files(job)
+            removed_uploads += removed["uploads"]
+            removed_workflows += removed["workflows"]
+
+        deleted_ids = [job["id"] for job in deletable_jobs]
+        deleted = await db.delete_jobs_by_ids(deleted_ids)
+        return {
+            "status": "cleared",
+            "scope": scope,
+            "requested": len(requested_ids),
+            "deleted": deleted,
+            "deleted_ids": deleted_ids,
+            "skipped_running": skipped_running,
+            "removed_files": {
+                "uploads": removed_uploads,
+                "workflows": removed_workflows,
+            },
+        }
+
+    if scope == "all":
+        jobs_to_clear = await db.get_all_jobs(limit=None)
+        deleted = await db.clear_all_jobs()
+    else:
+        jobs_to_clear = await db.get_user_jobs(user["username"], limit=None)
+        deleted = await db.clear_jobs_for_user(user["username"])
+
+    removed_uploads = 0
+    removed_workflows = 0
+    for job in jobs_to_clear:
+        if job["status"] == "running":
+            continue
+        removed = _delete_job_local_files(job)
+        removed_uploads += removed["uploads"]
+        removed_workflows += removed["workflows"]
+
+    return {
+        "status": "cleared",
+        "scope": scope,
+        "deleted": deleted,
+        "removed_files": {
+            "uploads": removed_uploads,
+            "workflows": removed_workflows,
+        },
+    }
 
 
 @app.get("/api/jobs/{job_id}/workflow")
