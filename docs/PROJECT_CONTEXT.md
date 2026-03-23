@@ -2,12 +2,13 @@
 
 ## Muc tieu
 
-Web app tao video tu anh thong qua ComfyUI, ho tro dang nhap web, submit queue, theo doi job, tai thumbnail/video/workflow, va can bang tai giua 2 GPU.
+Web app tao video tu anh thong qua ComfyUI, ho tro dang nhap web, submit queue, theo doi job, tai thumbnail/video/workflow, can bang tai giua 2 GPU, va nhan job tu Telegram bot vao cung hang doi xu ly.
 
 ## Stack
 
 - **Frontend**: HTML/CSS/JS trong `static/`
 - **Backend**: FastAPI + JWT auth + WebSocket updates
+- **Bot ingress**: Telegram long polling chay chung process app
 - **Data**: SQLite + filesystem persistence
 - **GPU compute**: ComfyUI qua Cloudflare Tunnel
 - **Current public production on 2026-03-19**: Railway tai `https://video.jazzrelaxation.com`
@@ -29,23 +30,30 @@ Web app tao video tu anh thong qua ComfyUI, ho tro dang nhap web, submit queue, 
 ## Kien truc Runtime
 
 ```text
-Browser -> Cloudflare -> shared Caddy on VPS -> FastAPI app (127.0.0.1:8011) -> ComfyUI tunnels (gpu0/gpu1)
+Browser / Telegram -> Cloudflare -> shared Caddy on VPS -> FastAPI app (127.0.0.1:8011) -> shared job queue -> ComfyUI tunnels (gpu0/gpu1)
 ```
 
 - Frontend chi noi chuyen voi backend.
+- Telegram bot dua job vao cung queue backend qua long polling, khong tao worker rieng.
+- Job Telegram dung pseudo-user theo `chat_id`, co `visibility=hidden`, va khong hien tren web UI mac dinh.
 - Backend giu auth, job persistence, upload persistence, workflow snapshots, va proxy download cho assets output.
 - Output lich su khong duoc copy ve VPS; backend van tai lai video/image cu tu ComfyUI tunnels dua tren `output_info`.
 - Khi xoa job khoi danh sach, app co the don file local tren VPS cho job do (`uploads/` + `workflows/`), nhung khong xoa output goc dang nam tren may GPU/ComfyUI.
 - Frontend format thoi gian job theo `Asia/Ho_Chi_Minh`; cac chuoi timestamp khong co timezone duoc xem la UTC truoc khi doi sang gio Viet Nam.
+- Bot Telegram gui thong bao hoan tat/that bai kem link tai qua cac endpoint hien co, dung JWT tao cho pseudo-user Telegram.
 
 ## Config quan trong
 
 - `ADMIN_USERNAME`, `ADMIN_PASSWORD`
 - `JWT_SECRET`
+- `PUBLIC_BASE_URL`
 - `COMFYUI_GPU1`, `COMFYUI_GPU2`
 - `DB_PATH=/data/comfybot.db`
 - `UPLOAD_DIR=/data/uploads`
 - `WORKFLOW_ARCHIVE_DIR=/data/workflows`
+- `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_POLL_TIMEOUT_S`, `TELEGRAM_POLL_INTERVAL_S`
+- `TELEGRAM_PENDING_DIR`
 - `COMFYUI_DOWNLOAD_TIMEOUT_S`, `COMFYUI_HISTORY_TIMEOUT_S`, `COMFYUI_WS_IDLE_TIMEOUT_S`
 
 ## Van hanh auth tren VPS

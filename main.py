@@ -39,6 +39,7 @@ from models import JobClearRequest, TokenResponse, UserCreate, UserLogin
 import httpx
 from load_balancer import balancer
 import comfyui_client
+from telegram_bot import telegram_bot_service
 
 logging.basicConfig(
     level=logging.INFO,
@@ -142,6 +143,7 @@ def _delete_job_local_files(job_row: dict) -> dict[str, int]:
 async def startup():
     os.makedirs(config.UPLOAD_DIR, exist_ok=True)
     os.makedirs(config.WORKFLOW_ARCHIVE_DIR, exist_ok=True)
+    os.makedirs(config.TELEGRAM_PENDING_DIR, exist_ok=True)
     db_dir = os.path.dirname(config.DB_PATH)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
@@ -155,11 +157,13 @@ async def startup():
         logger.info(f"Admin account created: {config.ADMIN_USERNAME}")
 
     await balancer.start()
+    await telegram_bot_service.start()
     logger.info(f"🚀 ComfyUI Bot started — {len(config.COMFYUI_SERVERS)} server(s)")
 
 
 @app.on_event("shutdown")
 async def shutdown():
+    await telegram_bot_service.stop()
     await balancer.stop()
 
 
@@ -306,6 +310,9 @@ async def create_job(
         workflow_name=workflow_name,
         workflow_file=workflow_archive_file,
         workflow_data=workflow_data,
+        source="web",
+        source_user_id=str(user["id"]),
+        visibility="web",
     )
 
     return {
@@ -320,9 +327,9 @@ async def create_job(
 @app.get("/api/jobs")
 async def list_jobs(user: dict = Depends(get_current_user)):
     if user["role"] == "admin":
-        jobs = await db.get_all_jobs()
+        jobs = await db.get_all_jobs(visibility="web")
     else:
-        jobs = await db.get_user_jobs(user["username"])
+        jobs = await db.get_user_jobs(user["username"], visibility="web")
 
     result = []
     for j in jobs:
@@ -377,6 +384,8 @@ async def list_jobs(user: dict = Depends(get_current_user)):
                 "workflow_name": j.get("workflow_name"),
                 "workflow_file": workflow_file,
                 "has_workflow": bool(workflow_file),
+                "source": j.get("source", "web"),
+                "visibility": j.get("visibility", "web"),
                 "created_at": j["created_at"],
                 "completed_at": j.get("completed_at"),
                 "has_output": j.get("output_info") is not None,
@@ -481,11 +490,11 @@ async def clear_jobs(
         }
 
     if scope == "all":
-        jobs_to_clear = await db.get_all_jobs(limit=None)
-        deleted = await db.clear_all_jobs()
+        jobs_to_clear = await db.get_all_jobs(limit=None, visibility="web")
+        deleted = await db.clear_all_jobs(visibility="web")
     else:
-        jobs_to_clear = await db.get_user_jobs(user["username"], limit=None)
-        deleted = await db.clear_jobs_for_user(user["username"])
+        jobs_to_clear = await db.get_user_jobs(user["username"], limit=None, visibility="web")
+        deleted = await db.clear_jobs_for_user(user["username"], visibility="web")
 
     removed_uploads = 0
     removed_workflows = 0
@@ -810,6 +819,7 @@ async def cancel_job(job_id: str, user: dict = Depends(get_current_user)):
         if sq.id == job.get("server_id"):
             await balancer._broadcast_job_update(job_id, sq)
             break
+    await telegram_bot_service.notify_job_result(job_id)
 
     return {"status": "cancelled"}
 

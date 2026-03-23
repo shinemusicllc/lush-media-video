@@ -46,3 +46,10 @@
 - Fixed: the repository is no longer stuck in the earlier "ahead locally but blocked from pushing" state.
 - Affected files: `docs/WORKLOG.md`, `docs/CHANGELOG.md`
 - Impact/Risk: Low; source control is synchronized again, and no runtime files or secrets were added as part of this publish step.
+
+### 2026-03-23 19:10 - Integrate Telegram bot with shared backend queue
+- Added: `telegram_bot.py`, Telegram-specific job metadata columns, long-polling bot ingestion, and Telegram completion notifications with download links backed by existing JWT-secured job endpoints.
+- Changed: web and Telegram now submit into the same backend queue, while the web API/UI only shows jobs with `visibility=web` and ignores hidden Telegram jobs by default.
+- Fixed: project context now documents the Telegram ingress path, and admin user listing excludes pseudo-users created for Telegram chats.
+- Affected files: `config.py`, `database.py`, `load_balancer.py`, `main.py`, `telegram_bot.py`, `static/app.js`, `.env.example`, `deploy/.env.example`, `docs/PROJECT_CONTEXT.md`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Medium; Telegram integration is live in code but depends on correct `TELEGRAM_BOT_TOKEN` and `PUBLIC_BASE_URL` configuration, and the first version pairs image/workflow per chat in memory rather than persisting unfinished drafts across restarts.

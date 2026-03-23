@@ -94,6 +94,10 @@ class LoadBalancer:
         workflow_name: str | None = None,
         workflow_file: str | None = None,
         workflow_data: dict | None = None,
+        source: str = "web",
+        source_user_id: str | None = None,
+        telegram_chat_id: str | None = None,
+        visibility: str = "web",
     ):
         """Submit job mới — round-robin phân bổ giữa các server."""
         async with self._lock:
@@ -108,6 +112,10 @@ class LoadBalancer:
             job_name=job_name,
             workflow_name=workflow_name,
             workflow_file=workflow_file,
+            source=source,
+            source_user_id=source_user_id,
+            telegram_chat_id=telegram_chat_id,
+            visibility=visibility,
         )
         await db.update_job(job_id, server_id=server.id)
 
@@ -219,6 +227,7 @@ class LoadBalancer:
                     completed_at=now,
                 )
                 await self._broadcast_job_update(job_id, server)
+                await self._notify_integrations(job_id)
                 logger.info(f"Job {job_id[:8]}… DONE ✓ on {server.name}")
 
             except Exception as e:
@@ -237,6 +246,7 @@ class LoadBalancer:
                         completed_at=now,
                     )
                     await self._broadcast_job_update(job_id, server)
+                    await self._notify_integrations(job_id)
 
             finally:
                 server.current_job = None
@@ -284,9 +294,17 @@ class LoadBalancer:
 
     async def _broadcast_job_update(self, job_id: str, server: ServerQueue):
         job = await db.get_job(job_id)
-        if job:
+        if job and (job.get("visibility") or "web") == "web":
             data = self._format_job(job, server)
             await self._broadcast(job["username"], data)
+
+    async def _notify_integrations(self, job_id: str):
+        try:
+            from telegram_bot import telegram_bot_service
+
+            await telegram_bot_service.notify_job_result(job_id)
+        except Exception as exc:
+            logger.warning("Integration notify failed for %s: %s", job_id, exc)
 
     @staticmethod
     def _resolve_job_name(job: dict) -> str:
@@ -351,6 +369,8 @@ class LoadBalancer:
                 "workflow_name": job.get("workflow_name"),
                 "workflow_file": workflow_file,
                 "has_workflow": bool(workflow_file),
+                "source": job.get("source", "web"),
+                "visibility": job.get("visibility", "web"),
                 "created_at": job["created_at"],
                 "completed_at": job.get("completed_at"),
                 "has_output": job.get("output_info") is not None,

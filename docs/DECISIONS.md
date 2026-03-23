@@ -14,3 +14,5 @@
 | Env vars thay hardcode     | Bảo mật, flexible giữa dev/prod                 | Config         | 2026-03-03 |
 | Dùng working tree hiện tại trên VPS làm nguồn sync về local | VPS đang chứa hotfix và thay đổi deploy chưa có đủ trên local/GitHub, nên cần kéo server state về để local bám đúng trạng thái vận hành thực tế. | Operations | 2026-03-23 |
 | Push snapshot da doi chieu tu VPS len GitHub truoc khi tiep tuc dong bo | GitHub dang cham hon runtime VPS; can dua trang thai da xac minh tren server len `origin/main` de bien GitHub thanh moc sync chung cho local va cac may khac. | Source control | 2026-03-23 |
+| Chung queue xu ly giua web va Telegram, tach kenh hien thi | Can giu FIFO duy nhat va logic xu ly duy nhat, nhung job Telegram khong nen xuat hien tren dashboard web thong thuong. | Backend + UX | 2026-03-23 |
+| Dung Telegram long polling trong cung app FastAPI | Trien khai don gian hon webhook, khong can them endpoint public rieng hay service bot tach biet trong giai doan dau. | Operations | 2026-03-23 |

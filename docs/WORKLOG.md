@@ -42,3 +42,12 @@
 - Xac nhan `refs/heads/main` tren `origin` da tro toi commit `3866b1a5b372079488d533f17f1e7dc6968d3919`
 - Chay `git pull --ff-only origin main` va nhan ket qua `Already up-to-date`
 - Xac nhan local `main`, `origin/main`, va GitHub da dong bo cung mot commit
+
+## 2026-03-23 — Integrate Telegram bot into shared queue
+
+- Mo rong schema `jobs` voi `source`, `source_user_id`, `telegram_chat_id`, `visibility`, va `telegram_notified_at`
+- Them service `telegram_bot.py` dung long polling, nhan anh + workflow JSON theo chat, tao pseudo-user Telegram, va enqueue vao cung `load_balancer`
+- Sua `load_balancer.py` de job Telegram van xu ly FIFO chung nhung khong broadcast len web UI neu `visibility=hidden`
+- Sua `main.py` va `static/app.js` de web chi lay/render cac job `visibility=web`
+- Bo sung config/env mau cho `PUBLIC_BASE_URL`, `TELEGRAM_BOT_TOKEN`, va thu muc pending cua Telegram
+- Verify bang `compileall`, import runtime, va bai test SQLite tam cho migration + filter `visibility`

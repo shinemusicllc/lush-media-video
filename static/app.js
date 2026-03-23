@@ -448,12 +448,18 @@ function updateHeroStats() {
     heroDone.textContent = String(done);
 }
 
+function isWebVisibleJob(job) {
+    if (!job) return false;
+    const visibility = String(job.visibility || 'web').toLowerCase();
+    return visibility === 'web';
+}
+
 async function loadJobs() {
     try {
         const res = await api('/api/jobs');
         if (!res.ok) return;
 
-        state.jobs = await res.json();
+        state.jobs = (await res.json()).filter(isWebVisibleJob);
         state.jobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         renderJobs();
     } catch (err) {
@@ -848,6 +854,7 @@ function connectWS() {
 function handleWSMessage(data) {
     if (data.type === 'job_update') {
         const job = data.job;
+        if (!isWebVisibleJob(job)) return;
         const idx = state.jobs.findIndex((j) => j.id === job.id);
         if (idx >= 0) {
             state.jobs[idx] = job;

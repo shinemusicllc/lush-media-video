@@ -36,6 +36,11 @@ async def init_db():
                 video_name    TEXT,
                 workflow_name TEXT,
                 workflow_file TEXT,
+                source        TEXT    NOT NULL DEFAULT 'web',
+                source_user_id TEXT,
+                telegram_chat_id TEXT,
+                visibility    TEXT    NOT NULL DEFAULT 'web',
+                telegram_notified_at TIMESTAMP,
                 output_info   TEXT,
                 created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 completed_at  TIMESTAMP,
@@ -52,11 +57,23 @@ async def init_db():
             await conn.execute("ALTER TABLE jobs ADD COLUMN workflow_name TEXT")
         if not await _column_exists(conn, "jobs", "workflow_file"):
             await conn.execute("ALTER TABLE jobs ADD COLUMN workflow_file TEXT")
+        if not await _column_exists(conn, "jobs", "source"):
+            await conn.execute("ALTER TABLE jobs ADD COLUMN source TEXT DEFAULT 'web'")
+        if not await _column_exists(conn, "jobs", "source_user_id"):
+            await conn.execute("ALTER TABLE jobs ADD COLUMN source_user_id TEXT")
+        if not await _column_exists(conn, "jobs", "telegram_chat_id"):
+            await conn.execute("ALTER TABLE jobs ADD COLUMN telegram_chat_id TEXT")
+        if not await _column_exists(conn, "jobs", "visibility"):
+            await conn.execute("ALTER TABLE jobs ADD COLUMN visibility TEXT DEFAULT 'web'")
+        if not await _column_exists(conn, "jobs", "telegram_notified_at"):
+            await conn.execute("ALTER TABLE jobs ADD COLUMN telegram_notified_at TIMESTAMP")
 
         # Keep old rows searchable by the new job_name field.
         await conn.execute(
             "UPDATE jobs SET job_name = COALESCE(job_name, video_name) WHERE job_name IS NULL"
         )
+        await conn.execute("UPDATE jobs SET source = 'web' WHERE source IS NULL")
+        await conn.execute("UPDATE jobs SET visibility = 'web' WHERE visibility IS NULL")
         await conn.commit()
 
 
@@ -87,7 +104,7 @@ async def list_users() -> list:
     async with aiosqlite.connect(DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
         async with conn.execute(
-            "SELECT id, username, role, created_at FROM users ORDER BY id"
+            "SELECT id, username, role, created_at FROM users WHERE role != 'telegram' ORDER BY id"
         ) as cur:
             return [dict(r) for r in await cur.fetchall()]
 
@@ -103,14 +120,19 @@ async def create_job(
     job_name: str | None = None,
     workflow_name: str | None = None,
     workflow_file: str | None = None,
+    source: str = "web",
+    source_user_id: str | None = None,
+    telegram_chat_id: str | None = None,
+    visibility: str = "web",
 ):
     async with aiosqlite.connect(DB_PATH) as conn:
         await conn.execute(
             """
             INSERT INTO jobs (
-                id, user_id, username, input_image, job_name, video_name, workflow_name, workflow_file
+                id, user_id, username, input_image, job_name, video_name, workflow_name,
+                workflow_file, source, source_user_id, telegram_chat_id, visibility
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_id,
@@ -121,6 +143,10 @@ async def create_job(
                 job_name,
                 workflow_name,
                 workflow_file,
+                source,
+                source_user_id,
+                telegram_chat_id,
+                visibility,
             ),
         )
         await conn.commit()
@@ -144,29 +170,41 @@ async def get_job(job_id: str) -> dict | None:
             return dict(row) if row else None
 
 
-async def get_user_jobs(username: str, limit: int | None = 50) -> list:
+async def get_user_jobs(
+    username: str,
+    limit: int | None = 50,
+    visibility: str | None = None,
+) -> list:
     async with aiosqlite.connect(DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
+        where = "WHERE username = ?"
+        params: list = [username]
+        if visibility is not None:
+            where += " AND visibility = ?"
+            params.append(visibility)
         if limit is None:
-            query = "SELECT * FROM jobs WHERE username = ? ORDER BY created_at DESC"
-            params = (username,)
+            query = f"SELECT * FROM jobs {where} ORDER BY created_at DESC"
         else:
-            query = "SELECT * FROM jobs WHERE username = ? ORDER BY created_at DESC LIMIT ?"
-            params = (username, limit)
-        async with conn.execute(query, params) as cur:
+            query = f"SELECT * FROM jobs {where} ORDER BY created_at DESC LIMIT ?"
+            params.append(limit)
+        async with conn.execute(query, tuple(params)) as cur:
             return [dict(r) for r in await cur.fetchall()]
 
 
-async def get_all_jobs(limit: int | None = 100) -> list:
+async def get_all_jobs(limit: int | None = 100, visibility: str | None = None) -> list:
     async with aiosqlite.connect(DB_PATH) as conn:
         conn.row_factory = aiosqlite.Row
+        where = ""
+        params: list = []
+        if visibility is not None:
+            where = "WHERE visibility = ?"
+            params.append(visibility)
         if limit is None:
-            query = "SELECT * FROM jobs ORDER BY created_at DESC"
-            params = ()
+            query = f"SELECT * FROM jobs {where} ORDER BY created_at DESC"
         else:
-            query = "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ?"
-            params = (limit,)
-        async with conn.execute(query, params) as cur:
+            query = f"SELECT * FROM jobs {where} ORDER BY created_at DESC LIMIT ?"
+            params.append(limit)
+        async with conn.execute(query, tuple(params)) as cur:
             return [dict(r) for r in await cur.fetchall()]
 
 
@@ -200,15 +238,27 @@ async def delete_jobs_by_ids(job_ids: list[str]) -> int:
         return cur.rowcount
 
 
-async def clear_jobs_for_user(username: str) -> int:
+async def clear_jobs_for_user(username: str, visibility: str | None = None) -> int:
     async with aiosqlite.connect(DB_PATH) as conn:
-        cur = await conn.execute("DELETE FROM jobs WHERE username = ?", (username,))
+        if visibility is None:
+            cur = await conn.execute("DELETE FROM jobs WHERE username = ?", (username,))
+        else:
+            cur = await conn.execute(
+                "DELETE FROM jobs WHERE username = ? AND visibility = ?",
+                (username, visibility),
+            )
         await conn.commit()
         return cur.rowcount
 
 
-async def clear_all_jobs() -> int:
+async def clear_all_jobs(visibility: str | None = None) -> int:
     async with aiosqlite.connect(DB_PATH) as conn:
-        cur = await conn.execute("DELETE FROM jobs")
+        if visibility is None:
+            cur = await conn.execute("DELETE FROM jobs")
+        else:
+            cur = await conn.execute(
+                "DELETE FROM jobs WHERE visibility = ?",
+                (visibility,),
+            )
         await conn.commit()
         return cur.rowcount

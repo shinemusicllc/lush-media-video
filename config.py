@@ -63,6 +63,9 @@ UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(PERSIST_BASE_DIR, "upload
 # - local default: ./comfybot.db
 # - production: set DB_PATH=/data/comfybot.db (mounted volume)
 DB_PATH = os.environ.get("DB_PATH", os.path.join(PERSIST_BASE_DIR, "comfybot.db"))
+TELEGRAM_PENDING_DIR = os.environ.get(
+    "TELEGRAM_PENDING_DIR", os.path.join(PERSIST_BASE_DIR, "telegram_pending")
+)
 
 # ============================================================
 # JWT Authentication
@@ -79,10 +82,17 @@ ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 # ============================================================
+# Public URLs / Telegram integration
+# ============================================================
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_POLL_TIMEOUT_S = int(os.environ.get("TELEGRAM_POLL_TIMEOUT_S", "30"))
+TELEGRAM_POLL_INTERVAL_S = float(os.environ.get("TELEGRAM_POLL_INTERVAL_S", "2"))
+
+# ============================================================
 # Workflow defaults (cố định — không cho user thay đổi)
 # ============================================================
 WORKFLOW_DEFAULTS = {
     "width": 1920,
     "height": 1080,
 }
-
