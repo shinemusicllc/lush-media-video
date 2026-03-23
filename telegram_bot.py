@@ -11,6 +11,7 @@ import logging
 import os
 import tempfile
 import uuid
+from collections import Counter
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,7 @@ class TelegramBotService:
         self._client: httpx.AsyncClient | None = None
         self._pending: dict[int, dict[str, Any]] = {}
         self._hint_tasks: dict[int, asyncio.Task] = {}
+        self._remaining_batch_updates: dict[int, int] = {}
 
     @property
     def enabled(self) -> bool:
@@ -116,9 +118,12 @@ class TelegramBotService:
         while True:
             try:
                 updates = await self._get_updates()
+                self._remaining_batch_updates = self._count_chat_updates(updates)
                 for update in updates:
                     self._offset = max(self._offset, update["update_id"] + 1)
+                    self._mark_update_seen(update)
                     await self._handle_update(update)
+                self._remaining_batch_updates = {}
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -236,6 +241,8 @@ class TelegramBotService:
         image_path = pending.get("image_path")
         workflow_data = pending.get("workflow_data")
         if not image_path or workflow_data is None:
+            if self._remaining_batch_updates.get(chat_id, 0) > 0:
+                return
             self._schedule_missing_hint(chat_id)
             return
 
@@ -417,7 +424,7 @@ class TelegramBotService:
 
     async def _delayed_missing_hint(self, chat_id: int):
         try:
-            await asyncio.sleep(1.2)
+            await asyncio.sleep(2.5)
             pending = self._pending.get(chat_id) or {}
             image_path = pending.get("image_path")
             workflow_data = pending.get("workflow_data")
@@ -435,6 +442,31 @@ class TelegramBotService:
             return
         finally:
             self._hint_tasks.pop(chat_id, None)
+
+    @staticmethod
+    def _extract_chat_id(update: dict) -> int | None:
+        message = update.get("message") or {}
+        chat = message.get("chat") or {}
+        chat_id = chat.get("id")
+        return chat_id if isinstance(chat_id, int) else None
+
+    def _count_chat_updates(self, updates: list[dict]) -> dict[int, int]:
+        counts: Counter[int] = Counter()
+        for update in updates:
+            chat_id = self._extract_chat_id(update)
+            if chat_id is not None:
+                counts[chat_id] += 1
+        return dict(counts)
+
+    def _mark_update_seen(self, update: dict):
+        chat_id = self._extract_chat_id(update)
+        if chat_id is None:
+            return
+        remaining = self._remaining_batch_updates.get(chat_id, 0)
+        if remaining <= 1:
+            self._remaining_batch_updates.pop(chat_id, None)
+            return
+        self._remaining_batch_updates[chat_id] = remaining - 1
 
     @staticmethod
     def _now_iso() -> str:

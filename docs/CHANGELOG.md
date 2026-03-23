@@ -67,3 +67,10 @@
 - Fixed: delayed guidance messages now mention `ảnh dạng tài liệu`, reducing confusion when users send workflow and image close together, and bot no longer accepts compressed Telegram `Photo` uploads as valid image input.
 - Affected files: `telegram_bot.py`, `docs/PROJECT_CONTEXT.md`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
 - Impact/Risk: Low; this is a Telegram UX/input-quality refinement, but users must now follow the stricter `Document` upload path for images.
+
+### 2026-03-23 21:30 - Delay Telegram missing-file hint until same batch settles
+- Added: per-chat batch tracking for Telegram updates so the bot can detect when another file from the same send action is still being processed.
+- Changed: the missing-file reminder now waits longer before firing, making it tolerant of slower document uploads over unstable networks.
+- Fixed: when users choose both workflow and image in one send action, the bot is much less likely to incorrectly say "Đã nhận workflow. Gửi thêm ảnh dạng tài liệu để xếp job."
+- Affected files: `telegram_bot.py`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; this only changes Telegram timing/UX behavior and does not affect queue ordering or job execution logic.

@@ -68,3 +68,9 @@
 - Them debounce cho thong bao dang cho du lieu de tranh bao sai khi user gui file sat nhau
 - Chot flow bot chi nhan anh dang `Document`; neu user gui theo kieu `Photo` thi bot nhac gui lai bang `Document` de giu chat luong goc
 - Redeploy lai VPS va xac nhan container healthy sau ban va Telegram moi
+
+## 2026-03-23 — Prevent premature Telegram missing-file hint in same send batch
+
+- Sua bot theo doi so update con lai cua tung chat trong cung poll batch de khong nhac "thieu anh/workflow" khi file tiep theo dang den ngay sau do
+- Tang thoi gian cho hint tu `1.2s` len `2.5s` de de dung hon voi truong hop anh `Document` upload cham do mang
+- Verify local bang `compileall` va bai test nho cho dem batch update theo `chat_id`
