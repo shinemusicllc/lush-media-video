@@ -37,6 +37,7 @@ Browser / Telegram -> Cloudflare -> shared Caddy on VPS -> FastAPI app (127.0.0.
 
 - Frontend chi noi chuyen voi backend.
 - Telegram bot dua job vao cung queue backend qua long polling, khong tao worker rieng.
+- Telegram bot chi nhan anh dang `Document` de giu file goc; neu user gui theo kieu `Photo` thi bot se nhac gui lai dung dinh dang.
 - Job Telegram dung pseudo-user theo `chat_id`, co `visibility=hidden`, va khong hien tren web UI mac dinh.
 - Backend giu auth, job persistence, upload persistence, workflow snapshots, va proxy download cho assets output.
 - Output lich su khong duoc copy ve VPS; backend van tai lai video/image cu tu ComfyUI tunnels dua tren `output_info`.

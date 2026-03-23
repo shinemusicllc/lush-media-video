@@ -60,3 +60,10 @@
 - Fixed: Telegram webhook state was cleared and bot commands were registered so long polling can receive user messages immediately.
 - Affected files: `docs/PROJECT_CONTEXT.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
 - Impact/Risk: Medium; production bot is active, but end-to-end user testing still depends on sending a real chat message and the current implementation keeps unfinished image/workflow pairing only in memory until enqueue.
+
+### 2026-03-23 21:15 - Refine Telegram bot replies and document-only image intake
+- Added: clearer Vietnamese bot responses and a hard rule that image uploads for Telegram must come through `Document` mode to preserve original quality.
+- Changed: completion notifications now render short clickable labels for video/image downloads instead of dumping full raw URLs, and the workflow download link was removed from the bot reply.
+- Fixed: delayed guidance messages now mention `ảnh dạng tài liệu`, reducing confusion when users send workflow and image close together, and bot no longer accepts compressed Telegram `Photo` uploads as valid image input.
+- Affected files: `telegram_bot.py`, `docs/PROJECT_CONTEXT.md`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; this is a Telegram UX/input-quality refinement, but users must now follow the stricter `Document` upload path for images.

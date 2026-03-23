@@ -60,3 +60,11 @@
 - Redeploy Docker stack va xac nhan container `lushvideo-app-1` healthy tren `127.0.0.1:8011`
 - Kiem tra log startup xac nhan `telegram_bot polling started` va ca hai GPU deu online
 - Goi Telegram Bot API de `getMe`, `deleteWebhook`, `setMyCommands`, va xac nhan webhook dang rong cho che do long polling
+
+## 2026-03-23 — Refine Telegram bot messaging and input rules
+
+- Sua bot tra loi sang tieng Viet co dau va doi link dai thanh link HTML gon gon `Tai video` / `Tai anh`
+- Bo link tai workflow khoi thong bao hoan tat cua Telegram
+- Them debounce cho thong bao dang cho du lieu de tranh bao sai khi user gui file sat nhau
+- Chot flow bot chi nhan anh dang `Document`; neu user gui theo kieu `Photo` thi bot nhac gui lai bang `Document` de giu chat luong goc
+- Redeploy lai VPS va xac nhan container healthy sau ban va Telegram moi
