@@ -82,3 +82,11 @@
 - Sua cleanup cua hint/enqueue task de task cu chi tu xoa chinh no, khong pop nham task moi hon trong race condition
 - Cap nhat wording Telegram theo huong xac nhan batch da nhan du hay con thieu file gi
 - Verify local bang `compileall` va bai test asyncio mo phong canh doi workflow -> anh cham, xac nhan khong phat hint sai va chi enqueue 1 lan
+
+## 2026-03-23 — Enqueue Telegram jobs ngay khi du 2 file, chi hint khi batch thay 1 file
+
+- Bo co che cho `6s` de tranh tao cam giac cho doi khi user gui du workflow + anh
+- Giu logic dem update trong cung poll batch; neu chat van con file sap xuong thi bot chua nhac "thieu file"
+- Khi da co du `workflow + image`, bot enqueue ngay va chi gui thong bao "Da nhan job..." thay vi thong bao dang doi them file
+- Them co `enqueue_started` de chan enqueue lap khi batch vua du 2 file va submit dang dien ra
+- Verify local bang `compileall` va bai test asyncio cho 2 case: batch 2 file enqueue ngay, batch 1 file moi nhac thieu file sau `2.5s`

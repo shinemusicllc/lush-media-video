@@ -18,3 +18,4 @@
 | Dung Telegram long polling trong cung app FastAPI | Trien khai don gian hon webhook, khong can them endpoint public rieng hay service bot tach biet trong giai doan dau. | Operations | 2026-03-23 |
 | Telegram bot chi nhan anh dang Document | Anh gui theo che do Photo cua Telegram bi nen va co the lam giam chat luong input, nen bot phai huong user dung Document de giu file goc. | UX + media quality | 2026-03-23 |
 | Telegram bot chi chot batch sau khoang lang upload | Upload document co the den lech nhịp trong nhung giay ke tiep; cho chat on dinh roi moi thong bao/enqueue se giam nhac sai va tranh tao duplicate job. | Telegram UX + queue reliability | 2026-03-23 |
+| Telegram bot enqueue ngay khi du 2 file, chi tre hint thieu file | User uu tien cam giac phan hoi nhanh; bot se chi delay nhac thieu file cho case chat hien chi thay 1 file, con khi du workflow + image thi enqueue ngay. | Telegram UX + queue reliability | 2026-03-23 |

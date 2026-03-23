@@ -26,7 +26,7 @@ from auth import create_token, hash_password
 logger = logging.getLogger("telegram_bot")
 
 FINAL_JOB_STATUSES = {"done", "error", "cancelled"}
-BATCH_SETTLE_DELAY_SECONDS = 6.0
+MISSING_HINT_DELAY_SECONDS = 2.5
 
 
 def _guess_image_ext(filename: str | None, fallback: str = ".jpg") -> str:
@@ -50,8 +50,6 @@ class TelegramBotService:
         self._client: httpx.AsyncClient | None = None
         self._pending: dict[int, dict[str, Any]] = {}
         self._hint_tasks: dict[int, asyncio.Task] = {}
-        self._enqueue_tasks: dict[int, asyncio.Task] = {}
-        self._pending_activity: dict[int, float] = {}
         self._remaining_batch_updates: dict[int, int] = {}
 
     @property
@@ -86,8 +84,6 @@ class TelegramBotService:
             self._clear_pending(chat_id)
         for chat_id in list(self._hint_tasks.keys()):
             self._cancel_hint_task(chat_id)
-        for chat_id in list(self._enqueue_tasks.keys()):
-            self._cancel_enqueue_task(chat_id)
 
     async def notify_job_result(self, job_id: str):
         if not self.enabled:
@@ -216,7 +212,6 @@ class TelegramBotService:
         caption = str(message.get("caption") or "").strip()
         if caption:
             pending["job_name"] = caption[:120]
-        self._mark_pending_activity(chat_id)
         await self._maybe_enqueue(chat_id)
 
     async def _handle_workflow(self, chat_id: int, from_user: dict, message: dict):
@@ -241,7 +236,6 @@ class TelegramBotService:
         pending["workflow_data"] = workflow_data
         pending["workflow_name"] = Path(workflow_name).name
         pending["source_user_id"] = str(from_user.get("id") or pending.get("source_user_id") or "")
-        self._mark_pending_activity(chat_id)
         await self._maybe_enqueue(chat_id)
 
     async def _maybe_enqueue(self, chat_id: int):
@@ -249,67 +243,69 @@ class TelegramBotService:
         image_path = pending.get("image_path")
         workflow_data = pending.get("workflow_data")
         if not image_path or workflow_data is None:
-            self._cancel_enqueue_task(chat_id)
             if self._remaining_batch_updates.get(chat_id, 0) > 0:
                 return
             self._schedule_missing_hint(chat_id)
             return
 
         self._cancel_hint_task(chat_id)
-        self._schedule_enqueue(chat_id)
+        await self._enqueue_pending_job(chat_id)
 
     async def _enqueue_pending_job(self, chat_id: int):
         pending = self._pending.get(chat_id) or {}
         image_path = pending.get("image_path")
         workflow_data = pending.get("workflow_data")
-        if not image_path or workflow_data is None:
+        if not image_path or workflow_data is None or pending.get("enqueue_started"):
             return
 
-        user = await self._ensure_telegram_user(chat_id)
-        job_id = str(uuid.uuid4())
-        image_ext = pending.get("image_ext") or ".jpg"
-        final_filename = f"{job_id}{image_ext}"
-        final_image_path = os.path.join(config.UPLOAD_DIR, final_filename)
-        os.makedirs(config.UPLOAD_DIR, exist_ok=True)
-        os.replace(image_path, final_image_path)
-        workflow_archive_file = f"{job_id}.json"
-        workflow_archive_path = os.path.join(
-            config.WORKFLOW_ARCHIVE_DIR, workflow_archive_file
-        )
-        os.makedirs(config.WORKFLOW_ARCHIVE_DIR, exist_ok=True)
-        with open(workflow_archive_path, "w", encoding="utf-8") as wf:
-            json.dump(workflow_data, wf, ensure_ascii=False, indent=2)
+        pending["enqueue_started"] = True
+        try:
+            user = await self._ensure_telegram_user(chat_id)
+            job_id = str(uuid.uuid4())
+            image_ext = pending.get("image_ext") or ".jpg"
+            final_filename = f"{job_id}{image_ext}"
+            final_image_path = os.path.join(config.UPLOAD_DIR, final_filename)
+            os.makedirs(config.UPLOAD_DIR, exist_ok=True)
+            os.replace(image_path, final_image_path)
+            workflow_archive_file = f"{job_id}.json"
+            workflow_archive_path = os.path.join(
+                config.WORKFLOW_ARCHIVE_DIR, workflow_archive_file
+            )
+            os.makedirs(config.WORKFLOW_ARCHIVE_DIR, exist_ok=True)
+            with open(workflow_archive_path, "w", encoding="utf-8") as wf:
+                json.dump(workflow_data, wf, ensure_ascii=False, indent=2)
 
-        job_name = (pending.get("job_name") or "").strip()
-        if not job_name:
-            job_name = f"telegram_{job_id[:8]}"
+            job_name = (pending.get("job_name") or "").strip()
+            if not job_name:
+                job_name = f"telegram_{job_id[:8]}"
 
-        from load_balancer import balancer
+            from load_balancer import balancer
 
-        await balancer.submit_job(
-            job_id=job_id,
-            user_id=user["id"],
-            username=user["username"],
-            image_path=final_image_path,
-            image_filename=final_filename,
-            job_name=job_name[:120],
-            workflow_name=pending.get("workflow_name") or "workflow.json",
-            workflow_file=workflow_archive_file,
-            workflow_data=workflow_data,
-            source="telegram",
-            source_user_id=pending.get("source_user_id") or str(chat_id),
-            telegram_chat_id=str(chat_id),
-            visibility="hidden",
-        )
+            await balancer.submit_job(
+                job_id=job_id,
+                user_id=user["id"],
+                username=user["username"],
+                image_path=final_image_path,
+                image_filename=final_filename,
+                job_name=job_name[:120],
+                workflow_name=pending.get("workflow_name") or "workflow.json",
+                workflow_file=workflow_archive_file,
+                workflow_data=workflow_data,
+                source="telegram",
+                source_user_id=pending.get("source_user_id") or str(chat_id),
+                telegram_chat_id=str(chat_id),
+                visibility="hidden",
+            )
 
-        self._pending.pop(chat_id, None)
-        self._pending_activity.pop(chat_id, None)
-        await self._send_message(
-            chat_id,
-            "Đã nhận đủ batch: 1 ảnh + 1 workflow JSON.\n"
-            f"Đã xếp job '{job_name[:120]}' vào hàng đợi chung.\n"
-            f"Mã job: {job_id[:8]}",
-        )
+            self._pending.pop(chat_id, None)
+            await self._send_message(
+                chat_id,
+                f"Đã nhận job '{job_name[:120]}' và xếp vào hàng đợi chung.\n"
+                f"Mã job: {job_id[:8]}",
+            )
+        except Exception:
+            pending.pop("enqueue_started", None)
+            raise
 
     async def _ensure_telegram_user(self, chat_id: int) -> dict:
         username = _telegram_username(chat_id)
@@ -429,8 +425,6 @@ class TelegramBotService:
 
     def _clear_pending(self, chat_id: int):
         self._cancel_hint_task(chat_id)
-        self._cancel_enqueue_task(chat_id)
-        self._pending_activity.pop(chat_id, None)
         pending = self._pending.pop(chat_id, None)
         if not pending:
             return
@@ -438,62 +432,32 @@ class TelegramBotService:
 
     def _schedule_missing_hint(self, chat_id: int):
         self._cancel_hint_task(chat_id)
-        activity_at = self._pending_activity.get(chat_id, 0.0)
-        self._hint_tasks[chat_id] = asyncio.create_task(
-            self._delayed_missing_hint(chat_id, activity_at)
-        )
+        self._hint_tasks[chat_id] = asyncio.create_task(self._delayed_missing_hint(chat_id))
 
     def _cancel_hint_task(self, chat_id: int):
         task = self._hint_tasks.pop(chat_id, None)
         if task:
             task.cancel()
 
-    def _schedule_enqueue(self, chat_id: int):
-        self._cancel_enqueue_task(chat_id)
-        activity_at = self._pending_activity.get(chat_id, 0.0)
-        self._enqueue_tasks[chat_id] = asyncio.create_task(
-            self._delayed_enqueue(chat_id, activity_at)
-        )
-
-    def _cancel_enqueue_task(self, chat_id: int):
-        task = self._enqueue_tasks.pop(chat_id, None)
-        if task:
-            task.cancel()
-
-    async def _delayed_enqueue(self, chat_id: int, activity_at: float):
+    async def _delayed_missing_hint(self, chat_id: int):
         try:
-            await asyncio.sleep(BATCH_SETTLE_DELAY_SECONDS)
+            await asyncio.sleep(MISSING_HINT_DELAY_SECONDS)
             if self._remaining_batch_updates.get(chat_id, 0) > 0:
                 return
-            if self._pending_activity.get(chat_id) != activity_at:
-                return
-            await self._enqueue_pending_job(chat_id)
-        except asyncio.CancelledError:
-            return
-        finally:
-            current = self._enqueue_tasks.get(chat_id)
-            if current is asyncio.current_task():
-                self._enqueue_tasks.pop(chat_id, None)
-
-    async def _delayed_missing_hint(self, chat_id: int, activity_at: float):
-        try:
-            await asyncio.sleep(BATCH_SETTLE_DELAY_SECONDS)
-            if self._pending_activity.get(chat_id) != activity_at:
-                return
             pending = self._pending.get(chat_id) or {}
+            if pending.get("enqueue_started"):
+                return
             image_path = pending.get("image_path")
             workflow_data = pending.get("workflow_data")
             if image_path and workflow_data is None:
                 await self._send_message(
                     chat_id,
-                    "Batch hiện tại đã nhận xong 1 ảnh dạng tài liệu.\n"
-                    "Còn thiếu workflow JSON để xếp job.",
+                    "Đã nhận ảnh dạng tài liệu. Gửi thêm workflow JSON để xếp job.",
                 )
             elif workflow_data is not None and not image_path:
                 await self._send_message(
                     chat_id,
-                    "Batch hiện tại đã nhận xong workflow JSON.\n"
-                    "Còn thiếu 1 ảnh dạng tài liệu để xếp job.",
+                    "Đã nhận workflow. Gửi thêm ảnh dạng tài liệu để xếp job.",
                 )
         except asyncio.CancelledError:
             return
@@ -501,9 +465,6 @@ class TelegramBotService:
             current = self._hint_tasks.get(chat_id)
             if current is asyncio.current_task():
                 self._hint_tasks.pop(chat_id, None)
-
-    def _mark_pending_activity(self, chat_id: int):
-        self._pending_activity[chat_id] = asyncio.get_running_loop().time()
 
     @staticmethod
     def _extract_chat_id(update: dict) -> int | None:

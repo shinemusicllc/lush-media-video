@@ -81,3 +81,10 @@
 - Fixed: duplicate Telegram jobs caused by slow multi-document uploads or stale debounce tasks are now blocked by activity-based enqueue gating and safer task cleanup.
 - Affected files: `telegram_bot.py`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
 - Impact/Risk: Low; Telegram jobs now wait a few seconds longer before entering the shared queue, trading a small delay for more reliable batch detection.
+
+### 2026-03-23 22:05 - Enqueue Telegram jobs ngay khi batch da du 2 file
+- Added: an `enqueue_started` guard so the same Telegram batch cannot enqueue twice while job submission is already in progress.
+- Changed: the `6`-second batch settle wait was removed; the bot now enqueues immediately once both workflow and image are present, while the missing-file hint remains a short delayed reminder for true single-file states.
+- Fixed: when a poll batch effectively contains both files, the bot now skips the confusing "Gửi thêm ảnh..." guidance and goes straight to "Đã nhận job..." without the earlier duplicate-enqueue behavior.
+- Affected files: `telegram_bot.py`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; Telegram feels faster again, but cross-poll uploads that arrive very far apart can still hit the short missing-file reminder before the second file appears.
