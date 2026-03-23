@@ -74,3 +74,11 @@
 - Sua bot theo doi so update con lai cua tung chat trong cung poll batch de khong nhac "thieu anh/workflow" khi file tiep theo dang den ngay sau do
 - Tang thoi gian cho hint tu `1.2s` len `2.5s` de de dung hon voi truong hop anh `Document` upload cham do mang
 - Verify local bang `compileall` va bai test nho cho dem batch update theo `chat_id`
+
+## 2026-03-23 — Settle Telegram document batches before hinting or enqueueing
+
+- Doi bot sang co che cho chat "yen" trong `6s` sau file document cuoi cung roi moi ket luan batch da xong
+- Them `pending_activity` + enqueue debounce de chi tao `1` job sau khi batch on dinh, tranh truong hop upload cham hoac task cu chen vao
+- Sua cleanup cua hint/enqueue task de task cu chi tu xoa chinh no, khong pop nham task moi hon trong race condition
+- Cap nhat wording Telegram theo huong xac nhan batch da nhan du hay con thieu file gi
+- Verify local bang `compileall` va bai test asyncio mo phong canh doi workflow -> anh cham, xac nhan khong phat hint sai va chi enqueue 1 lan

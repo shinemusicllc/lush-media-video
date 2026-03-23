@@ -17,3 +17,4 @@
 | Chung queue xu ly giua web va Telegram, tach kenh hien thi | Can giu FIFO duy nhat va logic xu ly duy nhat, nhung job Telegram khong nen xuat hien tren dashboard web thong thuong. | Backend + UX | 2026-03-23 |
 | Dung Telegram long polling trong cung app FastAPI | Trien khai don gian hon webhook, khong can them endpoint public rieng hay service bot tach biet trong giai doan dau. | Operations | 2026-03-23 |
 | Telegram bot chi nhan anh dang Document | Anh gui theo che do Photo cua Telegram bi nen va co the lam giam chat luong input, nen bot phai huong user dung Document de giu file goc. | UX + media quality | 2026-03-23 |
+| Telegram bot chi chot batch sau khoang lang upload | Upload document co the den lech nhịp trong nhung giay ke tiep; cho chat on dinh roi moi thong bao/enqueue se giam nhac sai va tranh tao duplicate job. | Telegram UX + queue reliability | 2026-03-23 |
