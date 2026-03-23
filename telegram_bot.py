@@ -10,6 +10,7 @@ import logging
 import os
 import tempfile
 import uuid
+from html import escape
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -45,6 +46,7 @@ class TelegramBotService:
         self._offset = 0
         self._client: httpx.AsyncClient | None = None
         self._pending: dict[int, dict[str, Any]] = {}
+        self._hint_tasks: dict[int, asyncio.Task] = {}
 
     @property
     def enabled(self) -> bool:
@@ -76,6 +78,8 @@ class TelegramBotService:
 
         for chat_id in list(self._pending.keys()):
             self._clear_pending(chat_id)
+        for chat_id in list(self._hint_tasks.keys()):
+            self._cancel_hint_task(chat_id)
 
     async def notify_job_result(self, job_id: str):
         if not self.enabled:
@@ -97,7 +101,7 @@ class TelegramBotService:
 
         try:
             message = self._build_result_message(job)
-            await self._send_message(chat_id, message)
+            await self._send_message(chat_id, message, parse_mode="HTML")
             await db.update_job(
                 job_id,
                 telegram_notified_at=self._now_iso(),
@@ -164,19 +168,19 @@ class TelegramBotService:
         if cmd.startswith("/start") or cmd.startswith("/help"):
             await self._send_message(
                 chat_id,
-                "Gui 1 anh va 1 file workflow JSON trong chat nay. "
-                "Khi da nhan du ca hai, bot se tu dong xep job vao hang doi chung.",
+                "Gửi 1 ảnh và 1 file workflow JSON trong cùng chat này.\n"
+                "Khi đã nhận đủ cả hai, bot sẽ tự động xếp job vào hàng đợi chung.",
             )
             return
 
         if cmd.startswith("/cancel"):
             self._clear_pending(chat_id)
-            await self._send_message(chat_id, "Da xoa du lieu pending hien tai.")
+            await self._send_message(chat_id, "Đã xoá dữ liệu đang chờ của bạn.")
             return
 
         await self._send_message(
             chat_id,
-            "Bot dang cho anh va workflow JSON. Dung /help de xem huong dan.",
+            "Bot đang chờ ảnh và workflow JSON. Dùng /help để xem hướng dẫn.",
         )
 
     async def _handle_photo(self, chat_id: int, from_user: dict, message: dict):
@@ -214,17 +218,17 @@ class TelegramBotService:
         workflow_name = document.get("file_name") or "workflow.json"
         raw = await self._download_bytes(document["file_id"])
         if len(raw) > 2 * 1024 * 1024:
-            await self._send_message(chat_id, "Workflow JSON qua lon. Gioi han la 2MB.")
+            await self._send_message(chat_id, "Workflow JSON quá lớn. Giới hạn là 2MB.")
             return
 
         try:
             workflow_data = json.loads(raw.decode("utf-8-sig"))
         except Exception as exc:
-            await self._send_message(chat_id, f"Workflow JSON khong hop le: {exc}")
+            await self._send_message(chat_id, f"Workflow JSON không hợp lệ: {exc}")
             return
 
         if not isinstance(workflow_data, dict):
-            await self._send_message(chat_id, "Workflow JSON phai la object o cap goc.")
+            await self._send_message(chat_id, "Workflow JSON phải là object ở cấp gốc.")
             return
 
         pending = self._pending.setdefault(chat_id, {})
@@ -238,10 +242,10 @@ class TelegramBotService:
         image_path = pending.get("image_path")
         workflow_data = pending.get("workflow_data")
         if not image_path or workflow_data is None:
-            missing = "anh" if not image_path else "workflow JSON"
-            await self._send_message(chat_id, f"Da nhan. Gui them {missing} de xep job.")
+            self._schedule_missing_hint(chat_id)
             return
 
+        self._cancel_hint_task(chat_id)
         user = await self._ensure_telegram_user(chat_id)
         job_id = str(uuid.uuid4())
         image_ext = pending.get("image_ext") or ".jpg"
@@ -282,7 +286,7 @@ class TelegramBotService:
         self._pending.pop(chat_id, None)
         await self._send_message(
             chat_id,
-            f"Da xep job '{job_name[:120]}' vao hang doi chung. Ma job: {job_id[:8]}",
+            f"Đã xếp job '{job_name[:120]}' vào hàng đợi chung.\nMã job: {job_id[:8]}",
         )
 
     async def _ensure_telegram_user(self, chat_id: int) -> dict:
@@ -321,52 +325,64 @@ class TelegramBotService:
         payload = file_info.json().get("result") or {}
         file_path = payload.get("file_path")
         if not file_path:
-            raise RuntimeError("Khong lay duoc file_path tu Telegram")
+            raise RuntimeError("Không lấy được file_path từ Telegram")
 
         file_resp = await self._client.get(f"{self.file_base}/{file_path}")
         file_resp.raise_for_status()
         return file_resp.content
 
-    async def _send_message(self, chat_id: int | str, text: str):
+    async def _send_message(
+        self,
+        chat_id: int | str,
+        text: str,
+        parse_mode: str | None = None,
+    ):
         assert self._client is not None
+        payload = {
+            "chat_id": str(chat_id),
+            "text": text,
+            "disable_web_page_preview": True,
+        }
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
         response = await self._client.post(
             f"{self.api_base}/sendMessage",
-            json={
-                "chat_id": str(chat_id),
-                "text": text,
-                "disable_web_page_preview": True,
-            },
+            json=payload,
         )
         response.raise_for_status()
 
     def _build_result_message(self, job: dict) -> str:
         job_name = (job.get("job_name") or job.get("video_name") or job["id"][:8]).strip()
-        lines = [f"Job '{job_name}' da {self._status_label(job.get('status'))}."]
+        safe_name = escape(job_name)
+        lines = [f"Job <b>{safe_name}</b> đã {self._status_label(job.get('status'))}."]
 
         if job.get("status") == "error" and job.get("error_msg"):
-            lines.append(f"Loi: {job['error_msg']}")
+            lines.append(f"Lỗi: <code>{escape(str(job['error_msg']))}</code>")
 
-        if config.PUBLIC_BASE_URL:
+        if job.get("status") == "done" and config.PUBLIC_BASE_URL:
             token = create_token(job["username"], "telegram")
             token_q = quote(token, safe="")
             base = config.PUBLIC_BASE_URL.rstrip("/")
-            lines.append(f"Video: {base}/api/jobs/{job['id']}/video?token={token_q}")
-            lines.append(f"Anh: {base}/api/jobs/{job['id']}/image?token={token_q}")
-            lines.append(f"Workflow: {base}/api/jobs/{job['id']}/workflow?token={token_q}")
-        else:
-            lines.append("PUBLIC_BASE_URL chua duoc cau hinh, chua tao duoc link tai.")
+            video_url = f"{base}/api/jobs/{job['id']}/video?token={token_q}"
+            image_url = f"{base}/api/jobs/{job['id']}/image?token={token_q}"
+            lines.append(
+                f'<a href="{escape(video_url)}">Tải video</a> | '
+                f'<a href="{escape(image_url)}">Tải ảnh</a>'
+            )
+        elif job.get("status") == "done":
+            lines.append("Chưa cấu hình PUBLIC_BASE_URL nên chưa tạo được link tải.")
 
         return "\n".join(lines)
 
     @staticmethod
     def _status_label(status: str | None) -> str:
         if status == "done":
-            return "hoan tat"
+            return "hoàn tất"
         if status == "error":
-            return "that bai"
+            return "thất bại"
         if status == "cancelled":
-            return "bi huy"
-        return status or "cap nhat"
+            return "bị huỷ"
+        return status or "cập nhật"
 
     @staticmethod
     def _is_workflow_document(document: dict) -> bool:
@@ -390,10 +406,35 @@ class TelegramBotService:
                 pass
 
     def _clear_pending(self, chat_id: int):
+        self._cancel_hint_task(chat_id)
         pending = self._pending.pop(chat_id, None)
         if not pending:
             return
         self._replace_pending_file(pending.get("image_path"))
+
+    def _schedule_missing_hint(self, chat_id: int):
+        self._cancel_hint_task(chat_id)
+        self._hint_tasks[chat_id] = asyncio.create_task(self._delayed_missing_hint(chat_id))
+
+    def _cancel_hint_task(self, chat_id: int):
+        task = self._hint_tasks.pop(chat_id, None)
+        if task:
+            task.cancel()
+
+    async def _delayed_missing_hint(self, chat_id: int):
+        try:
+            await asyncio.sleep(1.2)
+            pending = self._pending.get(chat_id) or {}
+            image_path = pending.get("image_path")
+            workflow_data = pending.get("workflow_data")
+            if image_path and workflow_data is None:
+                await self._send_message(chat_id, "Đã nhận ảnh. Gửi thêm workflow JSON để xếp job.")
+            elif workflow_data is not None and not image_path:
+                await self._send_message(chat_id, "Đã nhận workflow. Gửi thêm ảnh để xếp job.")
+        except asyncio.CancelledError:
+            return
+        finally:
+            self._hint_tasks.pop(chat_id, None)
 
     @staticmethod
     def _now_iso() -> str:
