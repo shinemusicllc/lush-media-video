@@ -2,11 +2,13 @@
 
 ## Build / Test / Run
 
+- Install deps: `pip install -r D:\Comfyuibot\lush-media-video\requirements.txt`
 - Local dev server: `uvicorn main:app --host 127.0.0.1 --port 8000 --reload`
-- Docker build: `docker build -t lush-media-video D:\lush-media-video`
-- Docker compose reference: `docker compose -f D:\lush-media-video\docker-compose.yml up -d --build`
+- Docker build: `docker build -t lush-media-video D:\Comfyuibot\lush-media-video`
+- Docker compose reference: `docker compose -f D:\Comfyuibot\lush-media-video\docker-compose.yml up -d --build`
 - Smoke check: `curl http://127.0.0.1:8000/`
 - VPS helper usage: `lushvideo status|logs|backup|redeploy|update|set-admin`
+- Automated test/lint: no dedicated suite is checked in yet; use the regression checklist below after changes.
 
 ## Coding Conventions
 

@@ -25,3 +25,17 @@
 - Fixed: queue item times no longer drift away from Viet Nam time because of browser-dependent timestamp parsing.
 - Affected files: `static/app.js`, `static/index.html`, `docs/PROJECT_CONTEXT.md`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
 - Impact/Risk: Low; this is a frontend-only display correction and does not change stored timestamps in SQLite.
+
+### 2026-03-23 18:00 - Sync local repo from VPS working tree
+- Added: a documented recovery step for using the current VPS working tree as the source when local/GitHub are behind the live server state.
+- Changed: local source, deploy scripts, and project docs were overwritten from `/opt/lush-media-video/app` so the local checkout follows the VPS working tree instead of `origin/main`.
+- Fixed: the root `AGENTS.md` workspace paths now point to `D:\Comfyuibot\lush-media-video` and reflect that there is no checked-in automated test/lint suite yet.
+- Affected files: multiple synced source files under repo root, `deploy/`, `docs/PROJECT_CONTEXT.md`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `AGENTS.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Medium; local source now matches the VPS working tree for synced files, but `deploy/.env`, `deploy/data/`, and cache folders were intentionally excluded so secrets/runtime data stay on the server.
+
+### 2026-03-23 18:15 - Publish verified VPS snapshot to GitHub
+- Added: a source-control decision to use the verified VPS snapshot as the publish baseline when GitHub is behind the live server.
+- Changed: `docs/PROJECT_CONTEXT.md` was restored to the current VPS deployment reality before publishing, and the repo is prepared to move `origin/main` forward to the verified server state.
+- Fixed: repository memory no longer points back to the older Railway-only runtime after syncing from the VPS working tree.
+- Affected files: `docs/PROJECT_CONTEXT.md`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; this is documentation and release bookkeeping ahead of the Git push, but it changes the canonical narrative for future maintenance to the VPS-backed runtime.
