@@ -33,4 +33,5 @@
 - Doc lai bo nho du an va phat hien `docs/PROJECT_CONTEXT.md` trong working tree tren VPS da cu hon trang thai deploy da xac minh truoc do
 - Sua lai `docs/PROJECT_CONTEXT.md` theo runtime VPS hien tai (`/opt/lush-media-video/app`, bind `127.0.0.1:8011`, shared Caddy, backup timer, data path)
 - Chuan bi commit tong hop de dua snapshot da doi chieu tu VPS len GitHub lam moc dong bo chinh
-- Sau khi push thanh cong se fetch/pull lai tu GitHub de local bam dung commit vua publish
+- Tao commit local `debe3c3` voi snapshot da doi chieu tu VPS
+- Thu push qua ca HTTPS va SSH nhung deu bi GitHub tu choi vi account `pearhoang` khong co quyen ghi vao `shinemusicllc/lush-media-video`

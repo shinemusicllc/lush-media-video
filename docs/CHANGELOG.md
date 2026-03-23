@@ -35,7 +35,7 @@
 
 ### 2026-03-23 18:15 - Publish verified VPS snapshot to GitHub
 - Added: a source-control decision to use the verified VPS snapshot as the publish baseline when GitHub is behind the live server.
-- Changed: `docs/PROJECT_CONTEXT.md` was restored to the current VPS deployment reality before publishing, and the repo is prepared to move `origin/main` forward to the verified server state.
+- Changed: `docs/PROJECT_CONTEXT.md` was restored to the current VPS deployment reality before publishing, and a local commit `debe3c3` now contains the verified VPS snapshot.
 - Fixed: repository memory no longer points back to the older Railway-only runtime after syncing from the VPS working tree.
 - Affected files: `docs/PROJECT_CONTEXT.md`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
-- Impact/Risk: Low; this is documentation and release bookkeeping ahead of the Git push, but it changes the canonical narrative for future maintenance to the VPS-backed runtime.
+- Impact/Risk: Medium; the publish step is blocked because GitHub denied push access to account `pearhoang`, so `origin/main` has not moved yet even though the local commit is ready.
