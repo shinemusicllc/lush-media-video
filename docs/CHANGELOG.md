@@ -39,3 +39,10 @@
 - Fixed: repository memory no longer points back to the older Railway-only runtime after syncing from the VPS working tree.
 - Affected files: `docs/PROJECT_CONTEXT.md`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
 - Impact/Risk: Medium; the publish step is blocked because GitHub denied push access to account `pearhoang`, so `origin/main` has not moved yet even though the local commit is ready.
+
+### 2026-03-23 18:25 - Complete GitHub sync after permission update
+- Added: a final verification record for the successful publish of the VPS-aligned snapshot to `origin/main`.
+- Changed: GitHub `main` now points to commit `3866b1a5b372079488d533f17f1e7dc6968d3919`, matching local `main` after a successful push and `pull --ff-only`.
+- Fixed: the repository is no longer stuck in the earlier "ahead locally but blocked from pushing" state.
+- Affected files: `docs/WORKLOG.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; source control is synchronized again, and no runtime files or secrets were added as part of this publish step.
