@@ -1,7 +1,8 @@
 """
 Telegram bot integration.
-Long-polling receiver that accepts image + workflow JSON, enqueues into the
-shared backend queue, and sends completion notifications with download links.
+Long-polling receiver that accepts image documents + workflow JSON documents,
+enqueues into the shared backend queue, and sends completion notifications
+with download links.
 """
 
 import asyncio
@@ -168,7 +169,9 @@ class TelegramBotService:
         if cmd.startswith("/start") or cmd.startswith("/help"):
             await self._send_message(
                 chat_id,
-                "Gửi 1 ảnh và 1 file workflow JSON trong cùng chat này.\n"
+                "Hãy gửi 2 file dạng tài liệu (Document) trong cùng chat này:\n"
+                "1. Ảnh gốc\n"
+                "2. Workflow JSON\n"
                 "Khi đã nhận đủ cả hai, bot sẽ tự động xếp job vào hàng đợi chung.",
             )
             return
@@ -180,24 +183,15 @@ class TelegramBotService:
 
         await self._send_message(
             chat_id,
-            "Bot đang chờ ảnh và workflow JSON. Dùng /help để xem hướng dẫn.",
+            "Bot đang chờ 2 file dạng tài liệu: ảnh gốc và workflow JSON. Dùng /help để xem hướng dẫn.",
         )
 
     async def _handle_photo(self, chat_id: int, from_user: dict, message: dict):
-        photo_sizes = message.get("photo") or []
-        if not photo_sizes:
-            return
-        file_id = photo_sizes[-1]["file_id"]
-        local_path = await self._download_to_pending(chat_id, file_id, ".jpg")
-        pending = self._pending.setdefault(chat_id, {})
-        self._replace_pending_file(pending.get("image_path"))
-        pending["image_path"] = local_path
-        pending["image_ext"] = ".jpg"
-        pending["source_user_id"] = str(from_user.get("id") or "")
-        caption = str(message.get("caption") or "").strip()
-        if caption:
-            pending["job_name"] = caption[:120]
-        await self._maybe_enqueue(chat_id)
+        await self._send_message(
+            chat_id,
+            "Ảnh bạn vừa gửi đang ở chế độ Photo nên Telegram có thể đã nén chất lượng.\n"
+            "Vui lòng gửi lại ảnh bằng dạng Tài liệu (Document) để bot nhận đúng file gốc.",
+        )
 
     async def _handle_image_document(self, chat_id: int, from_user: dict, message: dict):
         document = message.get("document") or {}
@@ -428,9 +422,15 @@ class TelegramBotService:
             image_path = pending.get("image_path")
             workflow_data = pending.get("workflow_data")
             if image_path and workflow_data is None:
-                await self._send_message(chat_id, "Đã nhận ảnh. Gửi thêm workflow JSON để xếp job.")
+                await self._send_message(
+                    chat_id,
+                    "Đã nhận ảnh dạng tài liệu. Gửi thêm workflow JSON để xếp job.",
+                )
             elif workflow_data is not None and not image_path:
-                await self._send_message(chat_id, "Đã nhận workflow. Gửi thêm ảnh để xếp job.")
+                await self._send_message(
+                    chat_id,
+                    "Đã nhận workflow. Gửi thêm ảnh dạng tài liệu để xếp job.",
+                )
         except asyncio.CancelledError:
             return
         finally:
