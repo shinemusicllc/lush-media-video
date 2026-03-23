@@ -18,10 +18,12 @@ Web app tao video tu anh thong qua ComfyUI, ho tro dang nhap web, submit queue, 
 
 - Shared Caddy dang chay tren stack SpotiCheck se publish `video.jazzrelaxation.com` sau khi Cloudflare DNS cutover sang VPS.
 - App video da chay healthy tren VPS qua `http://127.0.0.1:8011/`.
+- Telegram bot `@Lush_Video_Bot` da duoc cau hinh tren VPS runtime va dang long polling cung process app.
 - Persistent data tren VPS nam tai `/opt/lush-media-video/app/deploy/data`:
   - `comfybot.db`
   - `uploads/`
   - `workflows/`
+  - `telegram_pending/`
 - Backup du lieu `data/` duoc schedule moi ngay luc `03:37` gio server qua `lush-media-backup.timer`.
 - GPU van la dependency ben ngoai:
   - `https://gpu0.jazzrelaxation.com`

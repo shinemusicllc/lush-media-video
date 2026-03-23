@@ -51,3 +51,12 @@
 - Sua `main.py` va `static/app.js` de web chi lay/render cac job `visibility=web`
 - Bo sung config/env mau cho `PUBLIC_BASE_URL`, `TELEGRAM_BOT_TOKEN`, va thu muc pending cua Telegram
 - Verify bang `compileall`, import runtime, va bai test SQLite tam cho migration + filter `visibility`
+
+## 2026-03-23 — Deploy Telegram bot integration to VPS
+
+- Commit local thay doi Telegram thanh `2049e64` va push len `origin/main`
+- Dong bo source tu local len `/opt/lush-media-video/app` tren VPS theo cach giu nguyen `deploy/.env` va `deploy/data/`
+- Bo sung `PUBLIC_BASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_POLL_TIMEOUT_S`, `TELEGRAM_POLL_INTERVAL_S`, `TELEGRAM_PENDING_DIR` vao `deploy/.env`
+- Redeploy Docker stack va xac nhan container `lushvideo-app-1` healthy tren `127.0.0.1:8011`
+- Kiem tra log startup xac nhan `telegram_bot polling started` va ca hai GPU deu online
+- Goi Telegram Bot API de `getMe`, `deleteWebhook`, `setMyCommands`, va xac nhan webhook dang rong cho che do long polling

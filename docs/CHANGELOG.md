@@ -53,3 +53,10 @@
 - Fixed: project context now documents the Telegram ingress path, and admin user listing excludes pseudo-users created for Telegram chats.
 - Affected files: `config.py`, `database.py`, `load_balancer.py`, `main.py`, `telegram_bot.py`, `static/app.js`, `.env.example`, `deploy/.env.example`, `docs/PROJECT_CONTEXT.md`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
 - Impact/Risk: Medium; Telegram integration is live in code but depends on correct `TELEGRAM_BOT_TOKEN` and `PUBLIC_BASE_URL` configuration, and the first version pairs image/workflow per chat in memory rather than persisting unfinished drafts across restarts.
+
+### 2026-03-23 20:45 - Enable Telegram bot on VPS runtime
+- Added: live VPS env configuration for `PUBLIC_BASE_URL`, `TELEGRAM_BOT_TOKEN`, Telegram polling intervals, and `/data/telegram_pending`.
+- Changed: the VPS app at `82.197.71.6` was redeployed with commit `2049e64`, and the public bot `@Lush_Video_Bot` now runs via long polling inside the app container.
+- Fixed: Telegram webhook state was cleared and bot commands were registered so long polling can receive user messages immediately.
+- Affected files: `docs/PROJECT_CONTEXT.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Medium; production bot is active, but end-to-end user testing still depends on sending a real chat message and the current implementation keeps unfinished image/workflow pairing only in memory until enqueue.
