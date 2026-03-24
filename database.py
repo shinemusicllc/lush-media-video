@@ -208,6 +208,24 @@ async def get_all_jobs(limit: int | None = 100, visibility: str | None = None) -
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_pending_telegram_notifications(limit: int = 20) -> list:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        async with conn.execute(
+            """
+            SELECT *
+            FROM jobs
+            WHERE source = 'telegram'
+              AND telegram_notified_at IS NULL
+              AND status IN ('done', 'error', 'cancelled')
+            ORDER BY completed_at ASC, created_at ASC
+            LIMIT ?
+            """,
+            (limit,),
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
 async def get_jobs_by_ids(job_ids: list[str]) -> list:
     if not job_ids:
         return []

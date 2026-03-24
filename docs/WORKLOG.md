@@ -90,3 +90,11 @@
 - Khi da co du `workflow + image`, bot enqueue ngay va chi gui thong bao "Da nhan job..." thay vi thong bao dang doi them file
 - Them co `enqueue_started` de chan enqueue lap khi batch vua du 2 file va submit dang dien ra
 - Verify local bang `compileall` va bai test asyncio cho 2 case: batch 2 file enqueue ngay, batch 1 file moi nhac thieu file sau `2.5s`
+
+## 2026-03-24 — Retry va backfill Telegram completion notifications
+
+- Dieu tra job Telegram cua chat `6857168706` va xac nhan job da `done` nhung `telegram_notified_at` bi rong do loi mang tam thoi `All connection attempts failed`
+- Goi lai `notify_job_result(...)` thu cong tren VPS cho job bi hut va xac nhan thong bao da gui thanh cong
+- Bo sung retry nhieu lan ngay trong luc gui notify, va them vong quet nen de gui bu cac job Telegram da ket thuc nhung chua co `telegram_notified_at`
+- Them helper DB de truy van danh sach job Telegram can backfill notify
+- Verify local bang `compileall` va bai test stub cho 2 case: retry sau loi tam thoi, va backfill tu danh sach pending notifications

@@ -27,6 +27,8 @@ logger = logging.getLogger("telegram_bot")
 
 FINAL_JOB_STATUSES = {"done", "error", "cancelled"}
 MISSING_HINT_DELAY_SECONDS = 2.5
+NOTIFY_RETRY_DELAYS_SECONDS = (0, 3, 10)
+NOTIFY_BACKFILL_INTERVAL_SECONDS = 30
 
 
 def _guess_image_ext(filename: str | None, fallback: str = ".jpg") -> str:
@@ -46,6 +48,7 @@ class TelegramBotService:
         self.api_base = f"https://api.telegram.org/bot{self.token}" if self.token else ""
         self.file_base = f"https://api.telegram.org/file/bot{self.token}" if self.token else ""
         self._task: asyncio.Task | None = None
+        self._retry_task: asyncio.Task | None = None
         self._offset = 0
         self._client: httpx.AsyncClient | None = None
         self._pending: dict[int, dict[str, Any]] = {}
@@ -66,6 +69,7 @@ class TelegramBotService:
         os.makedirs(config.TELEGRAM_PENDING_DIR, exist_ok=True)
         self._client = httpx.AsyncClient(timeout=60)
         self._task = asyncio.create_task(self._poll_loop())
+        self._retry_task = asyncio.create_task(self._retry_loop())
         logger.info("Telegram bot polling started")
 
     async def stop(self):
@@ -76,6 +80,13 @@ class TelegramBotService:
             except asyncio.CancelledError:
                 pass
             self._task = None
+        if self._retry_task:
+            self._retry_task.cancel()
+            try:
+                await self._retry_task
+            except asyncio.CancelledError:
+                pass
+            self._retry_task = None
         if self._client:
             await self._client.aclose()
             self._client = None
@@ -103,15 +114,34 @@ class TelegramBotService:
         if not chat_id:
             return
 
-        try:
-            message = self._build_result_message(job)
-            await self._send_message(chat_id, message, parse_mode="HTML")
-            await db.update_job(
-                job_id,
-                telegram_notified_at=self._now_iso(),
-            )
-        except Exception as exc:
-            logger.error("Telegram notify failed for %s: %s", job_id, exc)
+        message = self._build_result_message(job)
+        last_exc: Exception | None = None
+        for attempt, delay_s in enumerate(NOTIFY_RETRY_DELAYS_SECONDS, start=1):
+            if delay_s:
+                await asyncio.sleep(delay_s)
+            try:
+                await self._send_message(chat_id, message, parse_mode="HTML")
+                await db.update_job(
+                    job_id,
+                    telegram_notified_at=self._now_iso(),
+                )
+                if attempt > 1:
+                    logger.info(
+                        "Telegram notify recovered for %s on retry %s",
+                        job_id,
+                        attempt,
+                    )
+                return
+            except Exception as exc:
+                last_exc = exc
+                logger.warning(
+                    "Telegram notify attempt %s failed for %s: %s",
+                    attempt,
+                    job_id,
+                    exc,
+                )
+
+        logger.error("Telegram notify failed for %s: %s", job_id, last_exc)
 
     async def _poll_loop(self):
         assert self._client is not None
@@ -130,6 +160,26 @@ class TelegramBotService:
             except Exception as exc:
                 logger.error("Telegram polling error: %s", exc)
                 await asyncio.sleep(config.TELEGRAM_POLL_INTERVAL_S)
+
+    async def _retry_loop(self):
+        while True:
+            try:
+                await self._retry_pending_notifications()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.error("Telegram retry loop error: %s", exc)
+            await asyncio.sleep(NOTIFY_BACKFILL_INTERVAL_SECONDS)
+
+    async def _retry_pending_notifications(self):
+        pending_jobs = await db.get_pending_telegram_notifications(limit=20)
+        if pending_jobs:
+            logger.info(
+                "Retrying Telegram notifications for %s pending job(s)",
+                len(pending_jobs),
+            )
+        for job in pending_jobs:
+            await self.notify_job_result(job["id"])
 
     async def _get_updates(self) -> list[dict]:
         assert self._client is not None

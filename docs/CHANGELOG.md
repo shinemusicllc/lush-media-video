@@ -88,3 +88,10 @@
 - Fixed: when a poll batch effectively contains both files, the bot now skips the confusing "Gửi thêm ảnh..." guidance and goes straight to "Đã nhận job..." without the earlier duplicate-enqueue behavior.
 - Affected files: `telegram_bot.py`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
 - Impact/Risk: Low; Telegram feels faster again, but cross-poll uploads that arrive very far apart can still hit the short missing-file reminder before the second file appears.
+
+### 2026-03-24 08:55 - Retry va backfill Telegram completion notifications
+- Added: a database query for Telegram jobs that finished without `telegram_notified_at`, plus a background retry loop that periodically backfills missed completion notifications.
+- Changed: Telegram completion sends now retry multiple times before giving up, instead of failing once and requiring manual intervention.
+- Fixed: a completed Telegram job for chat `6857168706` that previously missed its completion message because of `All connection attempts failed` was resent successfully, and future transient network failures should self-recover.
+- Affected files: `database.py`, `telegram_bot.py`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; notification delivery is more robust, though a rare failure can still resend once if Telegram accepts the message but the DB update fails before `telegram_notified_at` is written.
