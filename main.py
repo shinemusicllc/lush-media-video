@@ -136,6 +136,31 @@ def _delete_job_local_files(job_row: dict) -> dict[str, int]:
     return removed
 
 
+def _workflow_preset_dir() -> Path | None:
+    raw_dir = (config.WORKFLOW_PRESET_DIR or "").strip()
+    if not raw_dir:
+        return None
+    preset_dir = Path(raw_dir).expanduser()
+    if not preset_dir.is_dir():
+        return None
+    return preset_dir.resolve()
+
+
+def _resolve_workflow_preset(name: str) -> Path | None:
+    preset_dir = _workflow_preset_dir()
+    if not preset_dir:
+        return None
+
+    candidate_name = Path(name).name
+    if not candidate_name.lower().endswith(".json"):
+        return None
+
+    candidate = (preset_dir / candidate_name).resolve()
+    if candidate.parent != preset_dir or not candidate.is_file():
+        return None
+    return candidate
+
+
 # ── Startup / Shutdown ──────────────────────────────────────
 
 
@@ -230,6 +255,36 @@ async def register(data: UserCreate, admin: dict = Depends(require_admin)):
 @app.get("/api/auth/users")
 async def list_users(admin: dict = Depends(require_admin)):
     return await db.list_users()
+
+
+@app.get("/api/workflow-presets")
+async def list_workflow_presets(user: dict = Depends(get_current_user)):
+    preset_dir = _workflow_preset_dir()
+    if not preset_dir:
+        return {"items": []}
+
+    items = []
+    for path in sorted(preset_dir.glob("*.json"), key=lambda p: p.name.lower()):
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        items.append(
+            {
+                "name": path.name,
+                "size": stat.st_size,
+                "modified_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+            }
+        )
+    return {"items": items}
+
+
+@app.get("/api/workflow-presets/{preset_name}")
+async def download_workflow_preset(preset_name: str, user: dict = Depends(get_current_user)):
+    preset = _resolve_workflow_preset(preset_name)
+    if not preset:
+        raise HTTPException(status_code=404, detail="Workflow preset khong ton tai")
+    return FileResponse(preset, media_type="application/json", filename=preset.name)
 
 
 # ── Jobs ────────────────────────────────────────────────────
@@ -925,4 +980,3 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
-

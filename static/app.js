@@ -41,6 +41,10 @@ const workflowInput = $('#workflow-input');
 const workflowChooseBtn = $('#workflow-choose-btn');
 const workflowClearBtn = $('#workflow-clear-btn');
 const workflowChooseLabel = $('#workflow-choose-label');
+const workflowModal = $('#workflow-modal');
+const workflowUploadBtn = $('#workflow-upload-btn');
+const workflowPresetList = $('#workflow-preset-list');
+const workflowTooltip = $('#workflow-tooltip');
 
 const jobsList = $('#jobs-list');
 const jobsEmpty = $('#jobs-empty');
@@ -77,6 +81,8 @@ const mobileSidebarToggle = $('#mobile-sidebar-toggle');
 const sidebarBackdrop = $('#sidebar-backdrop');
 const sidebarUserName = $('#sidebar-user-name');
 const sidebarUserRole = $('#sidebar-user-role');
+let workflowPresetsLoaded = false;
+let workflowPopoverTimer = null;
 
 function setSidebarCollapsed(collapsed) {
     if (!sidebar) return;
@@ -126,7 +132,10 @@ function initSidebarUI() {
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeMobileSidebar();
+        if (e.key === 'Escape') {
+            closeMobileSidebar();
+            closeWorkflowModal();
+        }
     });
 }
 
@@ -327,6 +336,191 @@ function updateWorkflowUI() {
     }
 }
 
+function positionWorkflowPopover() {
+    if (!workflowModal || !workflowChooseBtn) return;
+    const rect = workflowChooseBtn.getBoundingClientRect();
+    const panelWidth = Math.min(420, window.innerWidth - 24);
+    const left = Math.max(12, Math.min(rect.left, window.innerWidth - panelWidth - 12));
+    workflowModal.style.setProperty('--workflow-popover-top', `${Math.round(rect.bottom + 8)}px`);
+    workflowModal.style.setProperty('--workflow-popover-left', `${Math.round(left)}px`);
+}
+
+function openWorkflowModal() {
+    if (!workflowModal) {
+        workflowInput?.click();
+        return;
+    }
+    if (workflowPopoverTimer) {
+        clearTimeout(workflowPopoverTimer);
+        workflowPopoverTimer = null;
+    }
+    positionWorkflowPopover();
+    workflowModal.classList.add('open');
+    workflowModal.setAttribute('aria-hidden', 'false');
+    if (!workflowPresetsLoaded) loadWorkflowPresets();
+}
+
+function closeWorkflowModal() {
+    if (workflowPopoverTimer) {
+        clearTimeout(workflowPopoverTimer);
+        workflowPopoverTimer = null;
+    }
+    hideWorkflowHint();
+    if (!workflowModal) return;
+    workflowModal.classList.remove('open');
+    workflowModal.setAttribute('aria-hidden', 'true');
+}
+
+function scheduleWorkflowPopoverClose() {
+    if (workflowPopoverTimer) clearTimeout(workflowPopoverTimer);
+    workflowPopoverTimer = setTimeout(() => {
+        const buttonHovered = workflowChooseBtn?.matches(':hover');
+        const popoverHovered = workflowModal?.matches(':hover');
+        const focusInside = workflowModal?.contains(document.activeElement) || workflowChooseBtn === document.activeElement;
+        if (!buttonHovered && !popoverHovered && !focusInside) closeWorkflowModal();
+    }, 140);
+}
+
+function renderWorkflowPresetState(message) {
+    if (!workflowPresetList) return;
+    workflowPresetList.innerHTML = `<div class="workflow-preset-state">${escapeHTML(message)}</div>`;
+}
+
+function getWorkflowPresetHint(name) {
+    const normalized = String(name || '').toLowerCase();
+    const loopRisk = normalized.includes(' co loop') ? '. Có nguy cơ bị lỗi viền đen' : '';
+    if (normalized.includes('jazz') && normalized.includes('lofi')) {
+        return `Chuyển động After Effect${loopRisk}`;
+    }
+    if (normalized.includes('kling')) {
+        return `Chuyển động tự nhiên theo kiểu Kling${loopRisk}`;
+    }
+    if (normalized.includes('livewallpaper')) {
+        return `Phù hợp cho dạng lofi nhân vật chiếm phần lớn ảnh${loopRisk}`;
+    }
+    return `${name || 'Workflow preset'}${loopRisk}`;
+}
+
+function showWorkflowHint(item) {
+    if (!workflowTooltip || !item) return;
+    const hint = item.dataset.workflowHint;
+    if (!hint) return;
+
+    workflowTooltip.textContent = hint;
+    workflowTooltip.classList.add('show');
+    workflowTooltip.style.maxWidth = `${Math.min(320, window.innerWidth - 24)}px`;
+
+    const itemRect = item.getBoundingClientRect();
+    const tooltipRect = workflowTooltip.getBoundingClientRect();
+    const left = Math.max(8, Math.min(itemRect.left + 40, window.innerWidth - tooltipRect.width - 8));
+    const top = Math.max(8, Math.min(itemRect.bottom + 4, window.innerHeight - tooltipRect.height - 8));
+
+    workflowTooltip.style.left = `${Math.round(left)}px`;
+    workflowTooltip.style.top = `${Math.round(top)}px`;
+}
+
+function hideWorkflowHint() {
+    workflowTooltip?.classList.remove('show');
+}
+
+async function loadWorkflowPresets() {
+    if (!workflowPresetList) return;
+    renderWorkflowPresetState('Đang tải workflow...');
+
+    try {
+        const res = await api('/api/workflow-presets');
+        if (!res.ok) throw new Error('Không tải được danh sách workflow');
+        const data = await res.json();
+        const items = Array.isArray(data.items) ? data.items : [];
+        workflowPresetsLoaded = true;
+
+        if (!items.length) {
+            renderWorkflowPresetState('Chưa có workflow preset');
+            return;
+        }
+
+        workflowPresetList.innerHTML = items.map((item) => {
+            const hint = getWorkflowPresetHint(item.name);
+            return `
+            <button class="workflow-preset-item" type="button" data-workflow-name="${escapeHTML(item.name)}" data-workflow-hint="${escapeHTML(hint)}" aria-label="${escapeHTML(`${item.name}: ${hint}`)}">
+                <span class="material-symbols-rounded">description</span>
+                <span>${escapeHTML(item.name)}</span>
+            </button>
+        `;
+        }).join('');
+    } catch (err) {
+        renderWorkflowPresetState(err.message || 'Không tải được workflow');
+    }
+}
+
+async function selectWorkflowPreset(name) {
+    if (!name) return;
+
+    try {
+        const res = await api(`/api/workflow-presets/${encodeURIComponent(name)}`);
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Không tải được workflow');
+        }
+        const blob = await res.blob();
+        state.selectedWorkflowFile = new File([blob], name, { type: 'application/json' });
+        if (workflowInput) workflowInput.value = '';
+        updateWorkflowUI();
+        closeWorkflowModal();
+    } catch (err) {
+        alert(`Lỗi workflow: ${err.message}`);
+    }
+}
+
+workflowModal?.addEventListener('click', (e) => {
+    e.stopPropagation();
+});
+
+workflowUploadBtn?.addEventListener('click', () => {
+    closeWorkflowModal();
+    workflowInput?.click();
+});
+
+workflowPresetList?.addEventListener('click', (e) => {
+    const item = e.target.closest('.workflow-preset-item');
+    if (!item) return;
+    selectWorkflowPreset(item.dataset.workflowName);
+});
+
+workflowPresetList?.addEventListener('mouseover', (e) => {
+    const item = e.target.closest('.workflow-preset-item');
+    if (!item || !workflowPresetList.contains(item)) return;
+    showWorkflowHint(item);
+});
+
+workflowPresetList?.addEventListener('mouseout', (e) => {
+    const item = e.target.closest('.workflow-preset-item');
+    if (!item || item.contains(e.relatedTarget)) return;
+    hideWorkflowHint();
+});
+
+workflowPresetList?.addEventListener('focusin', (e) => {
+    const item = e.target.closest('.workflow-preset-item');
+    if (item) showWorkflowHint(item);
+});
+
+workflowPresetList?.addEventListener('focusout', hideWorkflowHint);
+
+workflowModal?.addEventListener('mouseenter', () => {
+    if (workflowPopoverTimer) clearTimeout(workflowPopoverTimer);
+});
+workflowModal?.addEventListener('mouseleave', scheduleWorkflowPopoverClose);
+workflowModal?.addEventListener('focusout', scheduleWorkflowPopoverClose);
+window.addEventListener('resize', () => {
+    hideWorkflowHint();
+    closeWorkflowModal();
+});
+document.addEventListener('click', (e) => {
+    if (!workflowModal?.classList.contains('open')) return;
+    if (workflowModal.contains(e.target) || workflowChooseBtn?.contains(e.target)) return;
+    closeWorkflowModal();
+});
+
 // Upload
 if (dropZone && fileInput && removeBtn && submitBtn) {
     dropZone.addEventListener('click', () => fileInput.click());
@@ -351,7 +545,14 @@ if (dropZone && fileInput && removeBtn && submitBtn) {
         if (fileInput.files.length > 0) selectFile(fileInput.files[0]);
     });
 
-    workflowChooseBtn?.addEventListener('click', () => workflowInput?.click());
+    workflowChooseBtn?.addEventListener('mouseenter', openWorkflowModal);
+    workflowChooseBtn?.addEventListener('mouseleave', scheduleWorkflowPopoverClose);
+    workflowChooseBtn?.addEventListener('focus', openWorkflowModal);
+    workflowChooseBtn?.addEventListener('blur', scheduleWorkflowPopoverClose);
+    workflowChooseBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openWorkflowModal();
+    });
 
     workflowInput?.addEventListener('change', () => {
         if (workflowInput.files.length > 0) {

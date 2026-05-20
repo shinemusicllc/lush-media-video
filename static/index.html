@@ -275,6 +275,22 @@
     </div>
 </div>
 
+<div id="workflow-modal" class="workflow-modal" aria-hidden="true">
+    <section class="workflow-modal-panel" role="dialog" aria-modal="false" aria-labelledby="workflow-modal-title">
+        <div class="workflow-modal-header">
+            <h3 id="workflow-modal-title">Chọn workflow</h3>
+            <button class="btn btn-ghost btn-sm" type="button" id="workflow-upload-btn">
+                <span class="material-symbols-rounded">upload_file</span>
+                <span>Upload workflow</span>
+            </button>
+        </div>
+        <div id="workflow-preset-list" class="workflow-preset-list">
+            <div class="workflow-preset-state">Đang tải workflow...</div>
+        </div>
+    </section>
+    <div id="workflow-tooltip" class="workflow-tooltip" role="tooltip"></div>
+</div>
+
 <script src="/static/app.js"></script>
 </body>
 </html>

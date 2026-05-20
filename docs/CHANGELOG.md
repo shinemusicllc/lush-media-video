@@ -1,5 +1,14 @@
 # CHANGELOG
 
+### 2026-05-20 - Add workflow preset picker UI
+- Added: authenticated workflow preset listing/download endpoints backed by `WORKFLOW_PRESET_DIR`.
+- Added: `workflows/Jazz & lofi 6s Khong Loop.json` as the repository default workflow when users do not select one.
+- Changed: the workflow button now opens a compact hover popover under the button with preset choices plus a manual upload action in the header.
+- Changed: workflow preset hover tooltips now show purpose notes instantly, including a black-border risk note for `Co Loop` presets.
+- Fixed: sidebar logo alignment in collapsed mode by keeping the brand image centered like the nav icons.
+- Affected files: `config.py`, `main.py`, `static/index.html`, `static/style.css`, `static/app.js`, `workflows/*`, `docs/UI_SYSTEM.md`, `docs/MEMORY_INDEX.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; job creation still uploads a normal `workflow_file`, whether selected from preset or user upload.
+
 ### 2026-05-20 - Normalize VPS deploy source of truth
 - Added: lean project memory files for future Project Tasks and deploy routing.
 - Changed: VPS deploy scripts now refuse dirty tracked builds, preserve runtime state, pass `APP_COMMIT` into Docker builds, and work under root/deploy ownership differences with Git `safe.directory`.
