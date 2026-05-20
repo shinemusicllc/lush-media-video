@@ -57,7 +57,8 @@ WORKFLOW_PATH = os.environ.get(
     os.path.join(BASE_DIR, "workflows", "Jazz & lofi 6s Khong Loop.json"),
 )
 _LOCAL_WORKFLOW_PRESET_DIR = r"C:\Users\Admin\Downloads\wf" if os.name == "nt" else ""
-WORKFLOW_PRESET_DIR = os.environ.get("WORKFLOW_PRESET_DIR", _LOCAL_WORKFLOW_PRESET_DIR)
+_BUNDLED_WORKFLOW_PRESET_DIR = os.path.join(BASE_DIR, "workflows", "presets")
+WORKFLOW_PRESET_DIR = os.environ.get("WORKFLOW_PRESET_DIR", _LOCAL_WORKFLOW_PRESET_DIR or _BUNDLED_WORKFLOW_PRESET_DIR)
 # Archive per-job workflow JSON so users can download exactly what was used.
 WORKFLOW_ARCHIVE_DIR = os.environ.get("WORKFLOW_ARCHIVE_DIR", os.path.join(PERSIST_BASE_DIR, "workflows"))
 # Upload path can be mounted to Railway Volume for persistent thumbnails/input files.

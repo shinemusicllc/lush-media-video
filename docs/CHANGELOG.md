@@ -3,6 +3,7 @@
 ### 2026-05-20 - Add workflow preset picker UI
 - Added: authenticated workflow preset listing/download endpoints backed by `WORKFLOW_PRESET_DIR`.
 - Added: `workflows/Jazz & lofi 6s Khong Loop.json` as the repository default workflow when users do not select one.
+- Added: bundled workflow presets under `workflows/presets/` so the VPS picker does not depend on a Windows-only folder.
 - Changed: the workflow button now opens a compact hover popover under the button with preset choices plus a manual upload action in the header.
 - Changed: workflow preset hover tooltips now show purpose notes instantly, including a black-border risk note for `Co Loop` presets.
 - Fixed: sidebar logo alignment in collapsed mode by keeping the brand image centered like the nav icons.
