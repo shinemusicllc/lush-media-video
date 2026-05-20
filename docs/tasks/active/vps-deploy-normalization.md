@@ -18,4 +18,4 @@ Make GitHub `origin/main`, the VPS checkout, and the running `lushvideo-app-1` c
 - VPS checkout is reset to the standardization commit with runtime data preserved.
 - Container is rebuilt from that commit and exposes matching `APP_COMMIT`.
 - Backup service unit is updated so it can read current runtime files.
-
+- Future deploy can use either direct Git fetch or `BUNDLE_PATH=/tmp/<bundle> deploy/scripts/update_app.sh` when VPS GitHub credentials are unavailable.

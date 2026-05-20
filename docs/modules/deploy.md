@@ -18,6 +18,7 @@ The deploy module owns VPS Docker Compose runtime, helper scripts, systemd backu
 - Docker build context must exclude runtime data and secrets.
 - `redeploy.sh` must refuse dirty tracked source so the container can be traced to a commit.
 - `update_app.sh` may force-sync only when `FORCE_SYNC=1`; it writes a patch/status backup first.
+- If the VPS cannot fetch the private GitHub repo directly, copy a Git bundle to the VPS and run `BUNDLE_PATH=/tmp/<bundle> deploy/scripts/update_app.sh`.
 - The built image receives `APP_COMMIT` from Git so container provenance is inspectable.
 
 ## VPS Notes
@@ -26,4 +27,3 @@ The deploy module owns VPS Docker Compose runtime, helper scripts, systemd backu
 - Compose path: `/opt/lush-media-video/app/deploy/docker-compose.vps.yml`
 - Live container: `lushvideo-app-1`
 - Persistent data bind: `/opt/lush-media-video/app/deploy/data -> /data`
-
