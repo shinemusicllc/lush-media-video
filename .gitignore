@@ -11,10 +11,20 @@ venv/
 # Runtime data
 *.db
 uploads/
+deploy/data/
+deploy/backups/
+backups/
+.deploy-backups/
 
 # Environment files
 .env
 .env.*
+deploy/.env
 
 # Logs
 *.log
+
+# Local deploy/runtime leftovers
+*.bak
+*.bak-*
+*.tmp

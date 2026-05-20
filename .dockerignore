@@ -3,8 +3,15 @@ __pycache__
 *.pyc
 *.pyo
 uploads/
+deploy/data/
+deploy/backups/
+backups/
+*.db
 comfybot.db
 .env
+deploy/.env
+*.bak
+*.bak-*
 docs/
 *.md
 .gitignore

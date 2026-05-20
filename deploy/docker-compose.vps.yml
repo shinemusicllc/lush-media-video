@@ -5,6 +5,8 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        APP_COMMIT: ${APP_COMMIT:-unknown}
     restart: unless-stopped
     env_file:
       - .env
