@@ -2,7 +2,7 @@
 
 ### 2026-05-20 - Normalize VPS deploy source of truth
 - Added: lean project memory files for future Project Tasks and deploy routing.
-- Changed: VPS deploy scripts now refuse dirty tracked builds, preserve runtime state, and pass `APP_COMMIT` into Docker builds.
+- Changed: VPS deploy scripts now refuse dirty tracked builds, preserve runtime state, pass `APP_COMMIT` into Docker builds, and work under root/deploy ownership differences with Git `safe.directory`.
 - Fixed: runtime data/secrets/backups are ignored by Git and Docker build context; deploy shell scripts are executable in Git; the backup systemd service no longer runs as `deploy`, which could not read root-owned upload files.
 - Affected files: `.gitignore`, `.dockerignore`, `.gitattributes`, `Dockerfile`, `deploy/docker-compose.vps.yml`, `deploy/scripts/redeploy.sh`, `deploy/scripts/update_app.sh`, `deploy/systemd/lush-media-backup.service`, `docs/*`
 - Impact/Risk: Medium; deployment behavior changes intentionally, but persistent data remains under `deploy/data/` and is not reset by source sync.
