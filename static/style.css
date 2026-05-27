@@ -301,30 +301,12 @@ select:focus {
 .login-card {
   width: 100%;
   max-width: 420px;
-}
-
-.login-hero,
-.login-card {
-  padding: 30px;
-}
-
-.login-hero {
-  min-height: 480px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  background:
-    radial-gradient(950px 380px at 20% -20%, rgba(255, 255, 255, 0.08), transparent 62%),
-    var(--surface-2);
-}
-
-.login-hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(900px 380px at 12% -18%, rgba(120, 164, 255, 0.1), transparent 62%);
+  padding: 28px;
+  background: rgba(17, 19, 21, 0.94);
+  border-color: rgba(255, 255, 255, 0.13);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(12px);
 }
 
 .night-scene {
@@ -531,6 +513,8 @@ select:focus {
 
 .login-logo h2 {
   font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: 0;
 }
 
 .login-logo p {
@@ -539,51 +523,72 @@ select:focus {
   font-size: 14px;
 }
 
+#login-form {
+  display: grid;
+  gap: 13px;
+}
+
 #login-form input {
   min-height: 46px;
-  border-radius: 14px;
-  border-color: rgba(184, 206, 240, 0.9);
-  background: rgba(236, 245, 255, 0.96);
+  border-radius: 10px;
+  border-color: rgba(255, 255, 255, 0.24);
+  background: #0f141b;
   padding: 0 14px;
-  color: #5f7391 !important;
-  -webkit-text-fill-color: #5f7391 !important;
+  color: #f2f5fb !important;
+  -webkit-text-fill-color: #f2f5fb !important;
   font-weight: 500;
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 #login-form input:focus {
-  border-color: rgba(245, 187, 116, 0.95);
-  background: #ffffff;
-  color: #161f2d !important;
-  -webkit-text-fill-color: #161f2d !important;
-  box-shadow: 0 0 0 3px rgba(245, 187, 116, 0.26);
+  border-color: rgba(255, 255, 255, 0.5);
+  background: #151c25;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
 }
 
 #login-form input::placeholder {
-  color: rgba(109, 123, 146, 0.62) !important;
-  -webkit-text-fill-color: rgba(109, 123, 146, 0.62) !important;
+  color: var(--text-subtle) !important;
+  -webkit-text-fill-color: var(--text-subtle) !important;
   opacity: 1;
 }
 
 #login-form input::selection {
-  background: rgba(107, 161, 255, 0.38);
-  color: #0d1828;
-  -webkit-text-fill-color: #0d1828;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
 }
 
 #login-form input::-moz-selection {
-  background: rgba(107, 161, 255, 0.38);
-  color: #0d1828;
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
 }
 
 #login-form input:-webkit-autofill,
 #login-form input:-webkit-autofill:hover,
 #login-form input:-webkit-autofill:focus {
-  -webkit-text-fill-color: #161f2d !important;
-  box-shadow: 0 0 0 1000px rgba(236, 245, 255, 0.96) inset;
-  caret-color: #161f2d;
+  -webkit-text-fill-color: #f2f5fb !important;
+  box-shadow: 0 0 0 1000px #0f141b inset;
+  caret-color: #f2f5fb;
   font-weight: 600;
   transition: background-color 9999s ease-in-out 0s;
+}
+
+#login-btn {
+  margin-top: 2px;
+  min-height: 46px;
+  border-radius: 999px;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--primary);
+  color: #08110b;
+  box-shadow: none;
+}
+
+#login-btn:hover {
+  background: #24c15d;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #08110b;
 }
 
 .app-shell {
@@ -1831,10 +1836,6 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
-  .login-hero {
-    min-height: 0;
-  }
-
   .app-sidebar {
     position: fixed;
     top: 0;
@@ -1889,11 +1890,19 @@ select:focus {
     gap: 8px;
   }
 
-  .login-shell,
   .main-layout,
   .admin-panel {
     padding-left: 12px;
     padding-right: 12px;
+  }
+
+  .login-shell {
+    padding: 12px;
+  }
+
+  .login-card {
+    max-width: 100%;
+    padding: 22px;
   }
 
   .topbar {

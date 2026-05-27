@@ -43,26 +43,26 @@
         <div class="meteor meteor-2"></div>
         <div class="meteor meteor-3"></div>
     </div>
-    <div class="login-shell relative z-20 mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 gap-5 p-4 md:p-6">
-        <section class="login-card panel rounded-3xl border border-orange-100/35 bg-slate-900/44 p-7 shadow-2xl shadow-black/50 backdrop-blur-xl md:p-8">
+    <div class="login-shell">
+        <section class="login-card panel">
             <div class="login-logo">
                 <div class="logo-mark" aria-hidden="true">
                     <img class="brand-logo-img" src="/static/lush-logo-red.svg" alt="Lush Media logo">
                 </div>
-                <h2 class="text-3xl font-bold tracking-tight text-orange-50">Đăng nhập hệ thống</h2>
-                <p class="text-blue-100/80">Image to Video AI Generator</p>
+                <h2>Lush Media</h2>
+                <p>Đăng nhập để vào hàng chờ video</p>
             </div>
 
-            <form id="login-form" autocomplete="off" class="space-y-3">
+            <form id="login-form" autocomplete="off">
                 <div class="input-group">
-                    <label for="login-username" class="text-blue-100/80">Tên đăng nhập</label>
-                    <input type="text" id="login-username" name="username" placeholder="Nhập tên đăng nhập" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus class="w-full rounded-2xl border border-blue-100/45 bg-slate-800/62 px-4 py-3 text-blue-50 placeholder:text-blue-200/60 shadow-inner shadow-black/20 outline-none transition focus:border-orange-200/75 focus:ring-2 focus:ring-orange-300/45">
+                    <label for="login-username">Tên đăng nhập</label>
+                    <input type="text" id="login-username" name="username" placeholder="Nhập tên đăng nhập" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required autofocus>
                 </div>
                 <div class="input-group">
-                    <label for="login-password" class="text-blue-100/80">Mật khẩu</label>
-                    <input type="password" id="login-password" name="password" placeholder="Nhập mật khẩu" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required class="w-full rounded-2xl border border-blue-100/45 bg-slate-800/62 px-4 py-3 text-blue-50 placeholder:text-blue-200/60 shadow-inner shadow-black/20 outline-none transition focus:border-orange-200/75 focus:ring-2 focus:ring-orange-300/45">
+                    <label for="login-password">Mật khẩu</label>
+                    <input type="password" id="login-password" name="password" placeholder="Nhập mật khẩu" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required>
                 </div>
-                <button type="submit" class="btn btn-primary btn-full mt-2 min-h-[46px] rounded-2xl border border-orange-100/65 bg-gradient-to-r from-orange-200 to-amber-100 text-slate-900 shadow-lg shadow-orange-950/20 hover:from-orange-100 hover:to-amber-50" id="login-btn">
+                <button type="submit" class="btn btn-primary btn-full btn-lg" id="login-btn">
                     <span>Đăng nhập</span>
                     <div class="spinner" style="display:none"></div>
                 </button>

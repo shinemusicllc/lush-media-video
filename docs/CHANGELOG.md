@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 2026-05-27 - Align login UI with cinematic app style
+- Changed: refined the login card with dark app surfaces, dark inputs, and the green primary action while preserving the original cinematic background, starfield, and centered login composition.
+- Affected files: `static/index.html`, `static/style.css`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; auth flow and API behavior are unchanged.
+
 ### 2026-05-20 - Add workflow preset picker UI
 - Added: authenticated workflow preset listing/download endpoints backed by `WORKFLOW_PRESET_DIR`.
 - Added: `workflows/Jazz & lofi 6s Khong Loop.json` as the repository default workflow when users do not select one.
