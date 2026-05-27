@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 2026-05-27 - Update workflow diffusion models
+- Changed: switched the default workflow and bundled preset `UNETLoader` high/low diffusion model names to `wan2.2_i2v_high_noise_14B_nvfp4_mixed.safetensors` and `wan2.2_i2v_low_noise_14B_nvfp4_mixed.safetensors`.
+- Affected files: `workflows/Jazz & lofi 6s Khong Loop.json`, `workflows/presets/*.json`, `docs/CHANGELOG.md`
+- Impact/Risk: Medium; generated jobs now require the matching high/low Wan 2.2 model files to exist on the target ComfyUI servers.
+
 ### 2026-05-27 - Speed up queue thumbnails
 - Added: server-side cached JPEG thumbnails for job input images so the queue no longer sends full-size uploads into 124px preview slots.
 - Changed: queue rendering now eagerly decodes visible thumbnails and prefetches neighboring pagination thumbnails after render.
