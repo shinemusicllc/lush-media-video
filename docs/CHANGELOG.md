@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2026-05-27 - Speed up queue thumbnails
+- Added: server-side cached JPEG thumbnails for job input images so the queue no longer sends full-size uploads into 124px preview slots.
+- Changed: queue rendering now eagerly decodes visible thumbnails and prefetches neighboring pagination thumbnails after render.
+- Affected files: `config.py`, `main.py`, `requirements.txt`, `static/app.js`, `docs/CHANGELOG.md`
+- Impact/Risk: Medium; adds Pillow at build time and a new thumbnail cache directory under persistent app data.
+
 ### 2026-05-27 - Align login UI with cinematic app style
 - Changed: refined the login card with dark app surfaces, dark inputs, and the green primary action while preserving the original cinematic background, starfield, and centered login composition.
 - Affected files: `static/index.html`, `static/style.css`, `docs/CHANGELOG.md`

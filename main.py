@@ -110,8 +110,46 @@ def _safe_remove_file(path: str | None) -> bool:
         return False
 
 
+THUMBNAIL_SIZE = (360, 256)
+THUMBNAIL_CACHE_HEADERS = {"Cache-Control": "private, max-age=604800, immutable"}
+
+
+def _thumbnail_cache_path(job_id: str, image_path: str) -> Path:
+    image_stat = os.stat(image_path)
+    safe_job_id = "".join(ch for ch in job_id if ch.isalnum() or ch in ("-", "_")) or "job"
+    name = f"{safe_job_id}_{image_stat.st_size}_{image_stat.st_mtime_ns}.jpg"
+    return Path(config.THUMBNAIL_DIR) / name
+
+
+def _remove_thumbnail_cache(job_id: str) -> int:
+    safe_job_id = "".join(ch for ch in job_id if ch.isalnum() or ch in ("-", "_"))
+    if not safe_job_id:
+        return 0
+
+    removed = 0
+    thumb_dir = Path(config.THUMBNAIL_DIR)
+    for path in thumb_dir.glob(f"{safe_job_id}_*.jpg"):
+        if _safe_remove_file(str(path)):
+            removed += 1
+    return removed
+
+
+def _build_thumbnail(image_path: str, thumb_path: Path) -> None:
+    from PIL import Image, ImageOps
+
+    thumb_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = thumb_path.with_name(f"{thumb_path.name}.{uuid.uuid4().hex}.tmp")
+    with Image.open(image_path) as img:
+        img = ImageOps.exif_transpose(img)
+        img.thumbnail(THUMBNAIL_SIZE, Image.Resampling.LANCZOS)
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+        img.save(tmp_path, format="JPEG", quality=74, optimize=True, progressive=True)
+    os.replace(tmp_path, thumb_path)
+
+
 def _delete_job_local_files(job_row: dict) -> dict[str, int]:
-    removed = {"uploads": 0, "workflows": 0}
+    removed = {"uploads": 0, "workflows": 0, "thumbnails": 0}
 
     input_name = (job_row.get("input_image") or "").strip()
     if input_name:
@@ -119,12 +157,15 @@ def _delete_job_local_files(job_row: dict) -> dict[str, int]:
         if _safe_remove_file(upload_path):
             removed["uploads"] += 1
 
+    job_id = str(job_row.get("id") or "").strip()
+    if job_id:
+        removed["thumbnails"] += _remove_thumbnail_cache(job_id)
+
     workflow_candidates: set[str] = set()
     workflow_file = (job_row.get("workflow_file") or "").strip()
     if workflow_file:
         workflow_candidates.add(workflow_file)
 
-    job_id = str(job_row.get("id") or "").strip()
     if job_id:
         workflow_candidates.add(f"{job_id}.json")
 
@@ -524,10 +565,12 @@ async def clear_jobs(
 
         removed_uploads = 0
         removed_workflows = 0
+        removed_thumbnails = 0
         for job in deletable_jobs:
             removed = _delete_job_local_files(job)
             removed_uploads += removed["uploads"]
             removed_workflows += removed["workflows"]
+            removed_thumbnails += removed["thumbnails"]
 
         deleted_ids = [job["id"] for job in deletable_jobs]
         deleted = await db.delete_jobs_by_ids(deleted_ids)
@@ -541,6 +584,7 @@ async def clear_jobs(
             "removed_files": {
                 "uploads": removed_uploads,
                 "workflows": removed_workflows,
+                "thumbnails": removed_thumbnails,
             },
         }
 
@@ -553,12 +597,14 @@ async def clear_jobs(
 
     removed_uploads = 0
     removed_workflows = 0
+    removed_thumbnails = 0
     for job in jobs_to_clear:
         if job["status"] == "running":
             continue
         removed = _delete_job_local_files(job)
         removed_uploads += removed["uploads"]
         removed_workflows += removed["workflows"]
+        removed_thumbnails += removed["thumbnails"]
 
     return {
         "status": "cleared",
@@ -567,6 +613,7 @@ async def clear_jobs(
         "removed_files": {
             "uploads": removed_uploads,
             "workflows": removed_workflows,
+            "thumbnails": removed_thumbnails,
         },
     }
 
@@ -888,7 +935,22 @@ async def get_thumbnail(job_id: str):
     image_path = os.path.join(config.UPLOAD_DIR, job["input_image"])
     if not os.path.exists(image_path):
         raise HTTPException(status_code=404)
-    return FileResponse(image_path)
+
+    try:
+        thumb_path = _thumbnail_cache_path(job_id, image_path)
+        if not thumb_path.exists():
+            await asyncio.to_thread(_build_thumbnail, image_path, thumb_path)
+        return FileResponse(
+            thumb_path,
+            media_type="image/jpeg",
+            headers=THUMBNAIL_CACHE_HEADERS,
+        )
+    except Exception as exc:
+        logger.warning("thumbnail generation failed for job %s: %s", job_id, exc)
+        return FileResponse(
+            image_path,
+            headers={"Cache-Control": "private, max-age=3600"},
+        )
 
 
 # ── Admin ───────────────────────────────────────────────────

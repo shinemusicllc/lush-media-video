@@ -65,6 +65,7 @@ WORKFLOW_ARCHIVE_DIR = os.environ.get("WORKFLOW_ARCHIVE_DIR", os.path.join(PERSI
 # - local default: ./uploads
 # - production: set UPLOAD_DIR=/data/uploads (mounted volume)
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", os.path.join(PERSIST_BASE_DIR, "uploads"))
+THUMBNAIL_DIR = os.environ.get("THUMBNAIL_DIR", os.path.join(PERSIST_BASE_DIR, "thumbnails"))
 # Railway volume-friendly DB path:
 # - local default: ./comfybot.db
 # - production: set DB_PATH=/data/comfybot.db (mounted volume)

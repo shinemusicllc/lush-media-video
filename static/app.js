@@ -4,6 +4,7 @@
  */
 
 const JOBS_PER_PAGE = 10;
+const THUMBNAIL_PREFETCH_RADIUS = 1;
 
 const state = {
     token: localStorage.getItem('token') || null,
@@ -17,6 +18,8 @@ const state = {
     currentPage: 1,
     filters: { search: '', dateFrom: '', dateTo: '', status: '' },
 };
+
+const thumbnailPrefetchCache = new Set();
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -696,6 +699,42 @@ function getFilteredJobs() {
     return jobs;
 }
 
+function getThumbnailUrl(job) {
+    return `/api/jobs/${encodeURIComponent(job.id)}/thumbnail`;
+}
+
+function prefetchThumbnail(url) {
+    if (!url || thumbnailPrefetchCache.has(url)) return;
+    thumbnailPrefetchCache.add(url);
+
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = url;
+}
+
+function scheduleThumbnailPrefetch(filteredJobs, currentPage, totalPages) {
+    const run = () => {
+        const pages = new Set([currentPage]);
+        for (let offset = 1; offset <= THUMBNAIL_PREFETCH_RADIUS; offset += 1) {
+            if (currentPage + offset <= totalPages) pages.add(currentPage + offset);
+            if (currentPage - offset >= 1) pages.add(currentPage - offset);
+        }
+
+        pages.forEach((page) => {
+            const start = (page - 1) * JOBS_PER_PAGE;
+            filteredJobs
+                .slice(start, start + JOBS_PER_PAGE)
+                .forEach((job) => prefetchThumbnail(getThumbnailUrl(job)));
+        });
+    };
+
+    if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(run, { timeout: 700 });
+    } else {
+        window.setTimeout(run, 80);
+    }
+}
+
 filterSearch?.addEventListener('input', () => {
     state.filters.search = filterSearch.value.trim();
     state.currentPage = 1;
@@ -785,11 +824,11 @@ function renderJobs() {
 
     jobsEmpty.style.display = 'none';
 
-    pageJobs.forEach((job) => {
+    pageJobs.forEach((job, index) => {
         const el = document.createElement('div');
         el.className = 'job-item';
         el.dataset.id = job.id;
-        el.innerHTML = getJobHTML(job);
+        el.innerHTML = getJobHTML(job, index);
         jobsList.appendChild(el);
     });
 
@@ -799,6 +838,8 @@ function renderJobs() {
     } else {
         pagination.style.display = 'none';
     }
+
+    scheduleThumbnailPrefetch(filtered, state.currentPage, totalPages);
 }
 
 function renderPagination(totalPages) {
@@ -850,7 +891,7 @@ pageNumbers?.addEventListener('click', (e) => {
     renderJobs();
 });
 
-function getJobHTML(job) {
+function getJobHTML(job, index = 0) {
     const statusMap = {
         queued: { label: 'Chờ', cls: 'status-queued' },
         running: { label: 'Đang tạo', cls: 'status-running' },
@@ -913,9 +954,11 @@ function getJobHTML(job) {
             ? `<button class="job-workflow job-workflow-link" type="button" onclick="downloadWorkflow('${job.id}')" title="Tai workflow: ${escapeHTML(workflowLabel)}">${escapeHTML(workflowLabel)}</button>`
             : `<span class="job-workflow" title="${escapeHTML(workflowLabel)}">${escapeHTML(workflowLabel)}</span>`)
         : '';
+    const thumbnailUrl = getThumbnailUrl(job);
+    const fetchPriority = index < 3 ? 'high' : 'auto';
 
     return `
-        <img class="job-thumb" src="/api/jobs/${job.id}/thumbnail" alt="" loading="lazy" onerror="this.style.display='none'">
+        <img class="job-thumb" src="${thumbnailUrl}" alt="" loading="eager" decoding="async" fetchpriority="${fetchPriority}" onerror="this.style.display='none'">
         <div class="job-info">
             <p class="job-title" title="${title}">${title}</p>
             <div class="job-info-top">
