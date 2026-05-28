@@ -40,6 +40,7 @@ import httpx
 from load_balancer import balancer
 import comfyui_client
 from telegram_bot import telegram_bot_service
+from workflow_guard import enforce_locked_diffusion_models
 
 logging.basicConfig(
     level=logging.INFO,
@@ -390,6 +391,14 @@ async def create_job(
     if not isinstance(workflow_payload, dict):
         raise HTTPException(status_code=500, detail="Workflow snapshot khong hop le")
 
+    locked_model_updates = enforce_locked_diffusion_models(workflow_payload)
+    if locked_model_updates:
+        logger.info(
+            "Locked diffusion model names for job %s (%s UNETLoader nodes)",
+            job_id[:8],
+            locked_model_updates,
+        )
+
     workflow_archive_file = f"{job_id}.json"
     workflow_archive_path = os.path.join(config.WORKFLOW_ARCHIVE_DIR, workflow_archive_file)
     with open(workflow_archive_path, "w", encoding="utf-8") as wf:
@@ -405,7 +414,7 @@ async def create_job(
         job_name=clean_job_name,
         workflow_name=workflow_name,
         workflow_file=workflow_archive_file,
-        workflow_data=workflow_data,
+        workflow_data=workflow_payload,
         source="web",
         source_user_id=str(user["id"]),
         visibility="web",

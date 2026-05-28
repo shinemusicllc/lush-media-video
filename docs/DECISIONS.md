@@ -2,6 +2,7 @@
 
 | Decision                   | Reason                                          | Impact         | Date       |
 | -------------------------- | ----------------------------------------------- | -------------- | ---------- |
+| Hard-lock Wan 2.2 high/low diffusion model names at runtime | Uploaded or stale workflow files can still reference old fp8 diffusion models and fail on ComfyUI; normalize UNETLoader model names before archive and prompt submission. | Workflow reliability | 2026-05-28 |
 | Build VPS app only from clean Git commit | Dirty working trees made runtime code hard to trace; deploy now records `APP_COMMIT` and refuses dirty tracked builds. | Operations | 2026-05-20 |
 | Keep `deploy/data` outside source/build context | Runtime uploads, SQLite, workflows, and backups must not appear as untracked source or enter Docker images. | Operations | 2026-05-20 |
 | FastAPI thay Flask         | Async, WS native, performance tốt hơn           | Backend core   | 2026-03-03 |

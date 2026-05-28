@@ -22,6 +22,7 @@ import httpx
 import config
 import database as db
 from auth import create_token, hash_password
+from workflow_guard import enforce_locked_diffusion_models
 
 logger = logging.getLogger("telegram_bot")
 
@@ -281,6 +282,14 @@ class TelegramBotService:
         if not isinstance(workflow_data, dict):
             await self._send_message(chat_id, "Workflow JSON phải là object ở cấp gốc.")
             return
+
+        locked_model_updates = enforce_locked_diffusion_models(workflow_data)
+        if locked_model_updates:
+            logger.info(
+                "Locked Telegram workflow diffusion models for chat %s (%s UNETLoader nodes)",
+                chat_id,
+                locked_model_updates,
+            )
 
         pending = self._pending.setdefault(chat_id, {})
         pending["workflow_data"] = workflow_data

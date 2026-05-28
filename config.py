@@ -103,3 +103,5 @@ WORKFLOW_DEFAULTS = {
     "width": 1920,
     "height": 1080,
 }
+LOCKED_HIGH_DIFFUSION_MODEL = "wan2.2_i2v_high_noise_14B_nvfp4_mixed.safetensors"
+LOCKED_LOW_DIFFUSION_MODEL = "wan2.2_i2v_low_noise_14B_nvfp4_mixed.safetensors"

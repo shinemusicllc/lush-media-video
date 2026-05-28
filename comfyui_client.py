@@ -15,6 +15,7 @@ import httpx
 import websockets
 
 from config import WORKFLOW_PATH, WORKFLOW_DEFAULTS
+from workflow_guard import enforce_locked_diffusion_models
 
 logger = logging.getLogger("comfyui_client")
 
@@ -88,6 +89,13 @@ def build_prompt(
 
     if not isinstance(prompt, dict) or not prompt:
         raise ValueError("Workflow JSON khong hop le")
+
+    locked_model_updates = enforce_locked_diffusion_models(prompt)
+    if locked_model_updates:
+        logger.info(
+            "Locked diffusion model names before prompt build (%s UNETLoader nodes)",
+            locked_model_updates,
+        )
 
     patched_image = False
     seed_nodes = []
