@@ -970,14 +970,7 @@ async def get_thumbnail(job_id: str):
 
 @app.get("/api/admin/servers")
 async def admin_servers(admin: dict = Depends(require_admin)):
-    statuses = balancer.get_servers_status()
-    # Thêm health check realtime
-    for s_status in statuses:
-        for sq in balancer.servers:
-            if sq.id == s_status["id"]:
-                sq.is_online = await comfyui_client.check_server(sq.url)
-                s_status["status"] = sq.status
-    return statuses
+    return balancer.get_servers_status()
 
 
 # ── WebSocket realtime ──────────────────────────────────────
@@ -1017,13 +1010,10 @@ async def ws_jobs(websocket: WebSocket, token: str = ""):
                     )
                     await websocket.send_json(data)
                 except asyncio.TimeoutError:
-                    # Push periodic server status so UI reflects GPU recovery.
-                    statuses = []
-                    for sq in balancer.servers:
-                        sq.is_online = await comfyui_client.check_server(sq.url)
-                        statuses.append(sq.to_dict())
+                    # Push cached server status. A single background monitor refreshes
+                    # GPU health, so many browser tabs do not fan out to ComfyUI.
                     await websocket.send_json(
-                        {"type": "servers_status", "servers": statuses}
+                        {"type": "servers_status", "servers": balancer.get_servers_status()}
                     )
 
         async def receiver():

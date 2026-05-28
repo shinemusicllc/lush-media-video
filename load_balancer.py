@@ -21,6 +21,7 @@ SERVER_RECOVERY_RETRIES = int(os.environ.get("COMFYUI_SERVER_RECOVERY_RETRIES", 
 SERVER_RECOVERY_INTERVAL_S = int(
     os.environ.get("COMFYUI_SERVER_RECOVERY_INTERVAL_S", "5")
 )
+HEALTH_CHECK_INTERVAL_S = int(os.environ.get("COMFYUI_HEALTH_CHECK_INTERVAL_S", "8"))
 
 
 class ServerQueue:
@@ -59,6 +60,7 @@ class LoadBalancer:
         self._next_index = 0
         self._ws_clients: dict[str, set[asyncio.Queue]] = {}
         self._lock = asyncio.Lock()
+        self._health_task: asyncio.Task | None = None
 
     # ── Lifecycle ───────────────────────────────────────────
 
@@ -71,8 +73,15 @@ class LoadBalancer:
             sq._worker_task = asyncio.create_task(self._worker(sq))
             state = "ONLINE ✓" if sq.is_online else "OFFLINE ✗"
             logger.info(f"  {sq.name} ({sq.url}): {state}")
+        self._health_task = asyncio.create_task(self._health_monitor())
 
     async def stop(self):
+        if self._health_task:
+            self._health_task.cancel()
+            try:
+                await self._health_task
+            except asyncio.CancelledError:
+                pass
         for sq in self.servers:
             if sq._worker_task:
                 sq._worker_task.cancel()
@@ -212,6 +221,14 @@ class LoadBalancer:
 
     async def _refresh_server_status(self, server: ServerQueue):
         server.is_online = await comfyui_client.check_server(server.url)
+
+    async def _health_monitor(self):
+        while True:
+            await asyncio.gather(
+                *(self._refresh_server_status(s) for s in self.servers),
+                return_exceptions=True,
+            )
+            await asyncio.sleep(HEALTH_CHECK_INTERVAL_S)
 
     def _server_by_id(self, server_id: str | None) -> ServerQueue | None:
         if not server_id:
