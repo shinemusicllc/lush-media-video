@@ -1,9 +1,14 @@
 # CHANGELOG
 
+### 2026-05-28 - Switch diffusion models to Wan 2.2 fp8 KJ
+- Changed: switched the default workflow, bundled workflow presets, and runtime diffusion model normalization to `Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors` and `Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors`.
+- Affected files: `config.py`, `FULLHD_6S_Loop_API.json`, `workflows/Jazz & lofi 6s Khong Loop.json`, `workflows/presets/*.json`, `docs/DECISIONS_INDEX.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md`
+- Impact/Risk: Medium; generated jobs now require the matching fp8 KJ high/low Wan 2.2 model files to exist on the target ComfyUI servers.
+
 ### 2026-05-28 - Lock workflow diffusion models at runtime
-- Added: runtime guard that forces all web, Telegram, and prompt-build workflows to use the locked Wan 2.2 high/low diffusion model filenames.
+- Added: runtime guard that forces all web, Telegram, and prompt-build workflows to use the configured Wan 2.2 high/low diffusion model filenames.
 - Affected files: `config.py`, `main.py`, `telegram_bot.py`, `comfyui_client.py`, `workflow_guard.py`, root workflow JSON backups, `docs/DECISIONS_INDEX.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md`
-- Impact/Risk: Medium; uploaded workflows using old fp8 model names are silently normalized before archive and ComfyUI submission.
+- Impact/Risk: Medium; uploaded workflows using old diffusion model names are silently normalized before archive and ComfyUI submission.
 
 ### 2026-05-27 - Update workflow diffusion models
 - Changed: switched the default workflow and bundled preset `UNETLoader` high/low diffusion model names to `wan2.2_i2v_high_noise_14B_nvfp4_mixed.safetensors` and `wan2.2_i2v_low_noise_14B_nvfp4_mixed.safetensors`.
