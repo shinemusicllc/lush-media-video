@@ -48,6 +48,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("main")
 
+SERVER_STATUS_PUSH_INTERVAL_S = int(os.environ.get("SERVER_STATUS_PUSH_INTERVAL_S", "8"))
+
 app = FastAPI(title="ComfyUI Bot", version="1.0.0")
 
 
@@ -225,6 +227,7 @@ async def startup():
 
     await balancer.start()
     await telegram_bot_service.start()
+    await balancer.recover_active_jobs()
     logger.info(f"🚀 ComfyUI Bot started — {len(config.COMFYUI_SERVERS)} server(s)")
 
 
@@ -1009,7 +1012,9 @@ async def ws_jobs(websocket: WebSocket, token: str = ""):
         async def sender():
             while True:
                 try:
-                    data = await asyncio.wait_for(queue.get(), timeout=8)
+                    data = await asyncio.wait_for(
+                        queue.get(), timeout=SERVER_STATUS_PUSH_INTERVAL_S
+                    )
                     await websocket.send_json(data)
                 except asyncio.TimeoutError:
                     # Push periodic server status so UI reflects GPU recovery.

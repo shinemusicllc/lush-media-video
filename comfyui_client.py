@@ -51,6 +51,29 @@ async def check_server(server_url: str, timeout: float = 5) -> bool:
 # ── Upload ảnh ──────────────────────────────────────────────
 
 
+def _payload_contains(value, needle: str) -> bool:
+    if value == needle:
+        return True
+    if isinstance(value, dict):
+        return any(_payload_contains(v, needle) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_payload_contains(v, needle) for v in value)
+    return False
+
+
+async def is_prompt_active(server_url: str, prompt_id: str, timeout: float = 5) -> bool:
+    if not prompt_id:
+        return False
+    try:
+        headers = _get_tunnel_headers()
+        async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
+            r = await client.get(f"{server_url}/queue")
+            r.raise_for_status()
+            return _payload_contains(r.json(), prompt_id)
+    except Exception:
+        return False
+
+
 async def upload_image(server_url: str, image_path: str, filename: str) -> str:
     """Upload ảnh lên ComfyUI, trả về tên file trên server."""
     headers = _get_tunnel_headers()

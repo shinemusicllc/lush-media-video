@@ -81,6 +81,60 @@ class LoadBalancer:
                 except asyncio.CancelledError:
                     pass
 
+    async def recover_active_jobs(self):
+        """Restore queued/running DB jobs after an app restart."""
+        active_jobs = await db.get_jobs_by_status(("queued", "running"))
+        if not active_jobs:
+            return
+
+        restored = 0
+        for job in active_jobs:
+            server = self._server_by_id(job.get("server_id")) or await self._select_server()
+            if not server:
+                break
+
+            prompt_id = (job.get("prompt_id") or "").strip()
+            if job.get("status") == "running" and prompt_id:
+                completed = await self._complete_from_history(server, job["id"], prompt_id)
+                if completed:
+                    continue
+                if not await comfyui_client.is_prompt_active(server.url, prompt_id):
+                    logger.info(
+                        f"Job {job['id'][:8]} prompt is not active; requeueing"
+                    )
+                    prompt_id = ""
+
+            payload = self._build_job_payload(job)
+            if not payload:
+                now = datetime.now(timezone.utc).isoformat()
+                await db.update_job(
+                    job["id"],
+                    status="error",
+                    error_msg="Cannot recover job: input file missing",
+                    completed_at=now,
+                )
+                continue
+
+            if job.get("status") == "running" and prompt_id:
+                payload["existing_prompt_id"] = prompt_id
+                await db.update_job(job["id"], error_msg=None)
+            else:
+                await db.update_job(
+                    job["id"],
+                    status="queued",
+                    progress=0,
+                    prompt_id=None,
+                    server_id=server.id,
+                    error_msg=None,
+                    completed_at=None,
+                )
+
+            await server.queue.put(payload)
+            restored += 1
+
+        if restored:
+            logger.info(f"Recovered {restored} queued/running job(s) after startup")
+
     # ── Submit job ──────────────────────────────────────────
 
     async def submit_job(
@@ -99,10 +153,11 @@ class LoadBalancer:
         telegram_chat_id: str | None = None,
         visibility: str = "web",
     ):
-        """Submit job mới — round-robin phân bổ giữa các server."""
+        """Submit a new job, preferring online servers with shorter queues."""
         async with self._lock:
-            server = self.servers[self._next_index % len(self.servers)]
-            self._next_index = (self._next_index + 1) % len(self.servers)
+            server = await self._select_server()
+            if not server:
+                raise RuntimeError("No ComfyUI servers configured")
 
         await db.create_job(
             job_id,
@@ -136,6 +191,85 @@ class LoadBalancer:
 
     # ── Worker (1 per server) ───────────────────────────────
 
+    async def _select_server(self) -> ServerQueue | None:
+        if not self.servers:
+            return None
+
+        await asyncio.gather(
+            *(self._refresh_server_status(s) for s in self.servers),
+            return_exceptions=True,
+        )
+
+        ordered = [
+            self.servers[(self._next_index + i) % len(self.servers)]
+            for i in range(len(self.servers))
+        ]
+        online = [s for s in ordered if s.is_online]
+        candidates = online or ordered
+        server = min(candidates, key=lambda s: (1 if s.current_job else 0, s.queue.qsize()))
+        self._next_index = (self.servers.index(server) + 1) % len(self.servers)
+        return server
+
+    async def _refresh_server_status(self, server: ServerQueue):
+        server.is_online = await comfyui_client.check_server(server.url)
+
+    def _server_by_id(self, server_id: str | None) -> ServerQueue | None:
+        if not server_id:
+            return None
+        for server in self.servers:
+            if server.id == server_id:
+                return server
+        return None
+
+    def _build_job_payload(self, job: dict) -> dict | None:
+        image_filename = job.get("input_image")
+        if not image_filename:
+            return None
+
+        image_path = os.path.join(config.UPLOAD_DIR, image_filename)
+        if not os.path.exists(image_path):
+            return None
+
+        workflow_data = None
+        workflow_file = (job.get("workflow_file") or "").strip()
+        if workflow_file:
+            workflow_path = os.path.join(config.WORKFLOW_ARCHIVE_DIR, workflow_file)
+            if os.path.exists(workflow_path):
+                with open(workflow_path, "r", encoding="utf-8-sig") as wf:
+                    workflow_data = json.load(wf)
+
+        return {
+            "job_id": job["id"],
+            "image_path": image_path,
+            "image_filename": image_filename,
+            "username": job["username"],
+            "workflow_data": workflow_data,
+        }
+
+    async def _complete_from_history(
+        self, server: ServerQueue, job_id: str, prompt_id: str
+    ) -> bool:
+        try:
+            history = await comfyui_client.get_history(server.url, prompt_id)
+            output_info = comfyui_client.extract_output_info(history, prompt_id)
+        except Exception:
+            return False
+
+        if not output_info:
+            return False
+
+        now = datetime.now(timezone.utc).isoformat()
+        await db.update_job(
+            job_id,
+            status="done",
+            progress=100,
+            output_info=json.dumps(output_info),
+            completed_at=now,
+        )
+        await self._broadcast_job_update(job_id, server)
+        logger.info(f"Job {job_id[:8]} recovered from ComfyUI history")
+        return True
+
     async def _worker(self, server: ServerQueue):
         """Xử lý job tuần tự cho 1 ComfyUI server."""
         logger.info(f"Worker started: {server.name}")
@@ -164,30 +298,31 @@ class LoadBalancer:
                 await db.update_job(job_id, status="running")
                 await self._broadcast_job_update(job_id, server)
 
-                # 1. Upload ảnh
-                image_name = await comfyui_client.upload_image(
-                    server.url,
-                    job_data["image_path"],
-                    job_data["image_filename"],
-                )
+                prompt_id = job_data.get("existing_prompt_id")
 
-                # Check trạng thái sau upload
-                job_check = await db.get_job(job_id)
-                if job_check and job_check["status"] == "cancelled":
-                    logger.info(f"Job {job_id[:8]}… cancelled after upload")
-                    continue
+                if not prompt_id:
+                    image_name = await comfyui_client.upload_image(
+                        server.url,
+                        job_data["image_path"],
+                        job_data["image_filename"],
+                    )
 
-                # 2. Build prompt (patch workflow)
-                prompt = comfyui_client.build_prompt(
-                    image_name,
-                    workflow_data=job_data.get("workflow_data"),
-                )
+                    job_check = await db.get_job(job_id)
+                    if job_check and job_check["status"] == "cancelled":
+                        logger.info(f"Job {job_id[:8]} cancelled after upload")
+                        continue
 
-                # 3. Queue prompt
-                prompt_id = await comfyui_client.queue_prompt(
-                    server.url, prompt, client_id
-                )
-                await db.update_job(job_id, prompt_id=prompt_id)
+                    prompt = comfyui_client.build_prompt(
+                        image_name,
+                        workflow_data=job_data.get("workflow_data"),
+                    )
+
+                    prompt_id = await comfyui_client.queue_prompt(
+                        server.url, prompt, client_id
+                    )
+                    await db.update_job(job_id, prompt_id=prompt_id)
+                else:
+                    logger.info(f"Job {job_id[:8]} monitoring existing prompt")
 
                 # 4. Theo dõi progress qua WebSocket
                 async def on_progress(pct):
@@ -210,6 +345,11 @@ class LoadBalancer:
                     continue
 
                 if result["status"] == "error":
+                    completed = await self._complete_from_history(
+                        server, job_id, prompt_id
+                    )
+                    if completed:
+                        continue
                     raise Exception(result.get("error", "ComfyUI execution error"))
 
                 # 5. Lấy output
@@ -237,6 +377,16 @@ class LoadBalancer:
                     logger.info(f"Job {job_id[:8]}… cancelled (interrupt caught)")
                     await self._broadcast_job_update(job_id, server)
                 else:
+                    prompt_id = None
+                    if job_check:
+                        prompt_id = (job_check.get("prompt_id") or "").strip()
+                    if prompt_id:
+                        completed = await self._complete_from_history(
+                            server, job_id, prompt_id
+                        )
+                        if completed:
+                            continue
+
                     logger.error(f"Job {job_id[:8]}… ERROR ✗: {e}")
                     now = datetime.now(timezone.utc).isoformat()
                     await db.update_job(

@@ -238,6 +238,23 @@ async def get_jobs_by_ids(job_ids: list[str]) -> list:
             return [dict(r) for r in await cur.fetchall()]
 
 
+async def get_jobs_by_status(statuses: tuple[str, ...]) -> list:
+    if not statuses:
+        return []
+    placeholders = ", ".join("?" for _ in statuses)
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        async with conn.execute(
+            f"""
+            SELECT * FROM jobs
+            WHERE status IN ({placeholders})
+            ORDER BY created_at ASC
+            """,
+            statuses,
+        ) as cur:
+            return [dict(r) for r in await cur.fetchall()]
+
+
 async def delete_job(job_id: str):
     async with aiosqlite.connect(DB_PATH) as conn:
         await conn.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
