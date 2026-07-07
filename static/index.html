@@ -9,7 +9,7 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Inter+Tight:wght@600;700;800&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,500,0,0&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,500,0,0&display=swap" rel="stylesheet">
 
     <script id="tailwind-config">
         tailwind.config = {
@@ -37,20 +37,41 @@
 <body class="bg-background-dark text-white font-display">
 
 <div id="login-view" class="view relative isolate">
-    <div class="night-scene" aria-hidden="true">
-        <div class="starfield"></div>
-        <div class="meteor meteor-1"></div>
-        <div class="meteor meteor-2"></div>
-        <div class="meteor meteor-3"></div>
+    <div class="login-frame" aria-hidden="true">
+        <span class="login-crop login-crop-tl"></span>
+        <span class="login-crop login-crop-tr"></span>
+        <span class="login-crop login-crop-bl"></span>
+        <span class="login-crop login-crop-br"></span>
+    </div>
+    <div class="login-chrome login-chrome-top" aria-hidden="true">
+        <span>REEL 01 / LUSH MEDIA</span>
+        <span>SECURE ACCESS</span>
+    </div>
+    <div class="login-chrome login-chrome-bottom" aria-hidden="true">
+        <span>CINEMATIC AI WORKFLOW</span>
+        <span>QUEUE STUDIO · MMXXVI</span>
     </div>
     <div class="login-shell">
+        <section class="login-copy" aria-label="Giới thiệu Lush Media">
+            <p class="login-copy-kicker">AI cinematic workflow</p>
+            <h1>Biến ảnh thành thước phim có cảm xúc.</h1>
+            <p>Không gian vận hành dành cho đội sản xuất video AI: nạp ảnh, chọn workflow, theo dõi GPU và kiểm soát kết quả trong một hàng chờ gọn gàng.</p>
+        </section>
         <section class="login-card panel">
-            <div class="login-logo">
+            <div class="login-card-line" aria-hidden="true"></div>
+            <div class="login-brand-row">
                 <div class="logo-mark" aria-hidden="true">
                     <img class="brand-logo-img" src="/static/lush-logo-red.svg" alt="Lush Media logo">
                 </div>
+                <div>
+                    <p class="login-brand-name">Lush Media</p>
+                    <p class="login-brand-meta">Cinematic AI Studio</p>
+                </div>
+            </div>
+            <div class="login-logo">
+                <p class="login-section-marker">CH. 01 · Sign in</p>
                 <h2>Lush Media</h2>
-                <p>Đăng nhập để vào hàng chờ video</p>
+                <p>Đăng nhập để tiếp tục quản lý hàng chờ video.</p>
             </div>
 
             <form id="login-form" autocomplete="off">
@@ -68,6 +89,10 @@
                 </button>
                 <p id="login-error" class="error-text" style="display:none"></p>
             </form>
+            <div class="login-card-footer" aria-hidden="true">
+                <span>TLS 1.3</span>
+                <span>GPU #1 · GPU #2</span>
+            </div>
         </section>
     </div>
 </div>

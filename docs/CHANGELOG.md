@@ -139,3 +139,10 @@
 - Fixed: a completed Telegram job for chat `6857168706` that previously missed its completion message because of `All connection attempts failed` was resent successfully, and future transient network failures should self-recover.
 - Affected files: `database.py`, `telegram_bot.py`, `docs/DECISIONS.md`, `docs/WORKLOG.md`, `docs/CHANGELOG.md`
 - Impact/Risk: Low; notification delivery is more robust, though a rare failure can still resend once if Telegram accepts the message but the DB update fails before `telegram_notified_at` is written.
+
+### 2026-07-07 10:05 - Refresh local login screen visual
+- Added: cinematic login chrome, editorial copy block, updated sign-in card structure, and JetBrains Mono support for small technical UI labels.
+- Changed: login keeps the existing `static/login-bg.jpg` background but uses stronger cinematic overlays, a sharper dark card, green focus states, and compact dashboard-aligned form styling.
+- Fixed: local login redesign preserves the existing auth element IDs so `static/app.js` login behavior remains unchanged.
+- Affected files: `static/index.html`, `static/style.css`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; visual-only change, no auth/API contract changes.
