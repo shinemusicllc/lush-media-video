@@ -146,3 +146,24 @@
 - Fixed: local login redesign preserves the existing auth element IDs so `static/app.js` login behavior remains unchanged.
 - Affected files: `static/index.html`, `static/style.css`, `docs/CHANGELOG.md`
 - Impact/Risk: Low; visual-only change, no auth/API contract changes.
+
+### 2026-07-10 - Add list and grid job views
+- Added: a persistent list/grid segmented toggle in the queue filter toolbar, with `10` jobs per list page and `20` jobs per grid page.
+- Changed: grid cards prioritize the thumbnail, title, GPU, status, timestamp, and progress while download/image/delete actions appear as hover icons; touch devices keep actions visible.
+- Fixed: stacked mobile/tablet layout now follows normal document flow so the upload panel cannot overlap the queue panel.
+- Affected files: `static/index.html`, `static/style.css`, `static/app.js`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; frontend-only display change with no API, auth, queue, or database contract changes.
+
+### 2026-07-10 - Compact grid metadata into thumbnails
+- Changed: grid cards now place the job title, GPU, status, timestamp, and running progress directly over the thumbnail with a restrained readability gradient instead of a separate information panel.
+- Changed: grid actions are individual icon buttons with no enclosing action container; they remain hover/focus-only on pointer devices and visible on touch devices.
+- Fixed: grid tracks now use the same explicit height as each card, preventing dense multi-row pages from shrinking tracks and visually overlapping cards.
+- Affected files: `static/style.css`, `docs/CHANGELOG.md`
+- Impact/Risk: Low; grid-view styling only, with list view and job actions unchanged.
+## 2026-07-11 - Align Grid/List status and safe deletion
+
+- Mapped legacy `cancelled` jobs to the existing error presentation and error filter instead of exposing a cancel state that the dashboard cannot create.
+- Kept download/delete action availability consistent between List and Grid.
+- Restored the fixed completed-job contract (video + last-frame image) and added a workflow download action to Grid cards.
+- Added compact status badges in Grid while preserving the last selected List/Grid mode in browser storage.
+- Allowed queued jobs to be deleted while keeping running jobs protected; workers now skip queue entries whose DB rows were deleted before execution.

@@ -3,7 +3,8 @@
  * Đăng nhập, upload, WebSocket realtime, lọc, phân trang, admin.
  */
 
-const JOBS_PER_PAGE = 10;
+const LIST_JOBS_PER_PAGE = 10;
+const GRID_JOBS_PER_PAGE = 20;
 const THUMBNAIL_PREFETCH_RADIUS = 1;
 
 const state = {
@@ -16,6 +17,7 @@ const state = {
     selectedFile: null,
     selectedWorkflowFile: null,
     currentPage: 1,
+    jobsView: localStorage.getItem('jobsView') === 'grid' ? 'grid' : 'list',
     filters: { search: '', dateFrom: '', dateTo: '', status: '' },
 };
 
@@ -72,6 +74,8 @@ const filterDateTo = $('#filter-date-to');
 const filterStatus = $('#filter-status');
 const filterSearch = $('#filter-search');
 const filterClear = $('#filter-clear');
+const jobsViewList = $('#jobs-view-list');
+const jobsViewGrid = $('#jobs-view-grid');
 const clearListBtn = $('#clear-list-btn');
 const pagination = $('#pagination');
 const pagePrev = $('#page-prev');
@@ -644,7 +648,7 @@ function updateHeroStats() {
     if (!heroTotal || !heroRunning || !heroDone) return;
 
     const total = state.jobs.length;
-    const running = state.jobs.filter((j) => j.status === 'running').length;
+    const running = state.jobs.filter((j) => j.status === 'running' || j.status === 'demo_running').length;
     const done = state.jobs.filter((j) => j.status === 'done').length;
 
     heroTotal.textContent = String(total);
@@ -693,7 +697,18 @@ function getFilteredJobs() {
     }
 
     if (state.filters.status) {
-        jobs = jobs.filter((j) => j.status === state.filters.status);
+        jobs = jobs.filter((job) => {
+            if (state.filters.status === 'error') {
+                return job.status === 'error' || job.status === 'cancelled';
+            }
+            if (state.filters.status === 'queued') {
+                return job.status === 'queued' || job.status === 'demo_queued';
+            }
+            if (state.filters.status === 'running') {
+                return job.status === 'running' || job.status === 'demo_running';
+            }
+            return job.status === state.filters.status;
+        });
     }
 
     return jobs;
@@ -712,7 +727,33 @@ function prefetchThumbnail(url) {
     img.src = url;
 }
 
-function scheduleThumbnailPrefetch(filteredJobs, currentPage, totalPages) {
+function getJobsPerPage() {
+    return state.jobsView === 'grid' ? GRID_JOBS_PER_PAGE : LIST_JOBS_PER_PAGE;
+}
+
+function syncJobsView() {
+    const isGrid = state.jobsView === 'grid';
+    jobsList?.classList.toggle('jobs-grid', isGrid);
+    jobsViewList?.classList.toggle('active', !isGrid);
+    jobsViewGrid?.classList.toggle('active', isGrid);
+    jobsViewList?.setAttribute('aria-pressed', String(!isGrid));
+    jobsViewGrid?.setAttribute('aria-pressed', String(isGrid));
+}
+
+function setJobsView(view) {
+    if (view !== 'list' && view !== 'grid') return;
+    state.jobsView = view;
+    state.currentPage = 1;
+    localStorage.setItem('jobsView', view);
+    syncJobsView();
+    renderJobs();
+}
+
+jobsViewList?.addEventListener('click', () => setJobsView('list'));
+jobsViewGrid?.addEventListener('click', () => setJobsView('grid'));
+syncJobsView();
+
+function scheduleThumbnailPrefetch(filteredJobs, currentPage, totalPages, jobsPerPage) {
     const run = () => {
         const pages = new Set([currentPage]);
         for (let offset = 1; offset <= THUMBNAIL_PREFETCH_RADIUS; offset += 1) {
@@ -721,9 +762,9 @@ function scheduleThumbnailPrefetch(filteredJobs, currentPage, totalPages) {
         }
 
         pages.forEach((page) => {
-            const start = (page - 1) * JOBS_PER_PAGE;
+            const start = (page - 1) * jobsPerPage;
             filteredJobs
-                .slice(start, start + JOBS_PER_PAGE)
+                .slice(start, start + jobsPerPage)
                 .forEach((job) => prefetchThumbnail(getThumbnailUrl(job)));
         });
     };
@@ -791,8 +832,9 @@ clearListBtn?.addEventListener('click', async () => {
         }
 
         const payload = await res.json();
-        if (payload.skipped_running?.length) {
-            alert(`Đã xóa ${payload.deleted} job trong trang hiện tại. Bỏ qua ${payload.skipped_running.length} job đang chạy.`);
+        const skippedActive = payload.skipped_active || payload.skipped_running || [];
+        if (skippedActive.length) {
+            alert(`Đã xóa ${payload.deleted} job trong trang hiện tại. Bỏ qua ${skippedActive.length} job đang tạo.`);
         }
 
         await loadJobs();
@@ -803,11 +845,12 @@ clearListBtn?.addEventListener('click', async () => {
 
 function renderJobs() {
     const filtered = getFilteredJobs();
-    const totalPages = Math.max(1, Math.ceil(filtered.length / JOBS_PER_PAGE));
+    const jobsPerPage = getJobsPerPage();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / jobsPerPage));
     if (state.currentPage > totalPages) state.currentPage = totalPages;
 
-    const start = (state.currentPage - 1) * JOBS_PER_PAGE;
-    const pageJobs = filtered.slice(start, start + JOBS_PER_PAGE);
+    const start = (state.currentPage - 1) * jobsPerPage;
+    const pageJobs = filtered.slice(start, start + jobsPerPage);
     state.currentPageJobs = pageJobs;
 
     if (jobCount) jobCount.textContent = `${filtered.length} jobs`;
@@ -826,7 +869,15 @@ function renderJobs() {
 
     pageJobs.forEach((job, index) => {
         const el = document.createElement('div');
-        el.className = 'job-item';
+        const visualStatus = job.status === 'demo_running'
+            ? 'running'
+            : (job.status === 'demo_queued'
+                ? 'queued'
+                : (job.status === 'cancelled' ? 'error' : job.status));
+        const safeStatus = ['queued', 'running', 'done', 'error', 'cancelled'].includes(visualStatus)
+            ? visualStatus
+            : 'queued';
+        el.className = `job-item job-status-${safeStatus}`;
         el.dataset.id = job.id;
         el.innerHTML = getJobHTML(job, index);
         jobsList.appendChild(el);
@@ -839,7 +890,7 @@ function renderJobs() {
         pagination.style.display = 'none';
     }
 
-    scheduleThumbnailPrefetch(filtered, state.currentPage, totalPages);
+    scheduleThumbnailPrefetch(filtered, state.currentPage, totalPages, jobsPerPage);
 }
 
 function renderPagination(totalPages) {
@@ -876,7 +927,7 @@ pagePrev?.addEventListener('click', () => {
 });
 
 pageNext?.addEventListener('click', () => {
-    const totalPages = Math.max(1, Math.ceil(getFilteredJobs().length / JOBS_PER_PAGE));
+    const totalPages = Math.max(1, Math.ceil(getFilteredJobs().length / getJobsPerPage()));
     if (state.currentPage < totalPages) {
         state.currentPage += 1;
         renderJobs();
@@ -894,22 +945,38 @@ pageNumbers?.addEventListener('click', (e) => {
 function getJobHTML(job, index = 0) {
     const statusMap = {
         queued: { label: 'Chờ', cls: 'status-queued' },
+        demo_queued: { label: 'Chờ', cls: 'status-queued' },
         running: { label: 'Đang tạo', cls: 'status-running' },
+        demo_running: { label: 'Đang tạo', cls: 'status-running' },
         done: { label: 'Hoàn tất', cls: 'status-done' },
         error: { label: 'Lỗi', cls: 'status-error' },
-        cancelled: { label: 'Đã hủy', cls: 'status-cancelled' },
+        cancelled: { label: 'Lỗi', cls: 'status-error' },
     };
 
-    const st = statusMap[job.status] || statusMap.queued;
+    const gridPending = state.jobsView === 'grid'
+        && ['queued', 'demo_queued'].includes(job.status);
+    const st = gridPending ? statusMap.queued : (statusMap[job.status] || statusMap.queued);
+    let statusLabel = st.label;
+    const progressValue = Math.min(100, Math.max(0, Math.round(Number(job.progress) || 0)));
+    if (state.jobsView === 'grid') {
+        if (gridPending) statusLabel = 'Đang chờ';
+        if (job.status === 'running' || job.status === 'demo_running') {
+            statusLabel = `Đang tạo... ${progressValue}%`;
+        }
+    }
+
+    const isRunning = job.status === 'running' || job.status === 'demo_running';
+    const workflowLabel = String(job.workflow_name || job.workflow_file || '').trim();
+    const canDownloadWorkflow = job.status === 'done' && Boolean(job.workflow_file || job.has_workflow);
 
     let progressHTML = '';
-    if (job.status === 'running') {
-        progressHTML = `<div class="progress-bar"><div class="progress-bar-fill" style="width:${job.progress}%"></div></div>`;
+    if (isRunning) {
+        progressHTML = `<div class="progress-bar"><div class="progress-bar-fill" style="width:${progressValue}%"></div></div>`;
     }
 
     let actionsHTML = '';
 
-    if (job.status === 'done' && (job.has_video || job.has_output)) {
+    if (job.status === 'done' && job.has_output) {
         actionsHTML += `<button class="btn-download" onclick="downloadVideo('${job.id}')" title="Tải video">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
@@ -917,8 +984,8 @@ function getJobHTML(job, index = 0) {
             Tải
         </button>`;
     }
-    if (job.status === 'done' && (job.has_image || job.has_output)) {
-        actionsHTML += `<button class="btn-download" onclick="downloadImage('${job.id}')" title="Tải ảnh output">
+    if (job.status === 'done' && job.has_output) {
+        actionsHTML += `<button class="btn-download" onclick="downloadImage('${job.id}')" title="Tải ảnh last frame">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"/>
                 <circle cx="8.5" cy="8.5" r="1.5"/>
@@ -928,7 +995,17 @@ function getJobHTML(job, index = 0) {
         </button>`;
     }
 
-    if (job.status !== 'running') {
+    if (state.jobsView === 'grid' && canDownloadWorkflow) {
+        actionsHTML += `<button class="btn-download" onclick="downloadWorkflow('${job.id}')" title="Tải workflow" aria-label="Tải workflow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                <path d="M14 2v6h6M12 11v7M9 15l3 3 3-3"/>
+            </svg>
+        </button>`;
+    }
+
+    const canDelete = !isRunning;
+    if (canDelete) {
         actionsHTML += `<button class="btn-delete" onclick="deleteJob('${job.id}')" title="Xóa khỏi danh sách" aria-label="Xóa job">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 6h18"/>
@@ -947,11 +1024,9 @@ function getJobHTML(job, index = 0) {
     const time = formatTime(job.created_at);
     const showUser = state.role === 'admin' ? `<span class="job-user">${escapeHTML(job.username)}</span>` : '';
     const title = escapeHTML(getJobName(job, shortId));
-    const workflowLabel = String(job.workflow_name || job.workflow_file || "").trim();
-    const canDownloadWorkflow = job.status === 'done' && Boolean(job.workflow_file || job.has_workflow);
     const workflowBadge = workflowLabel
         ? (canDownloadWorkflow
-            ? `<button class="job-workflow job-workflow-link" type="button" onclick="downloadWorkflow('${job.id}')" title="Tai workflow: ${escapeHTML(workflowLabel)}">${escapeHTML(workflowLabel)}</button>`
+            ? `<button class="job-workflow job-workflow-link" type="button" onclick="downloadWorkflow('${job.id}')" title="Tải workflow: ${escapeHTML(workflowLabel)}">${escapeHTML(workflowLabel)}</button>`
             : `<span class="job-workflow" title="${escapeHTML(workflowLabel)}">${escapeHTML(workflowLabel)}</span>`)
         : '';
     const thumbnailUrl = getThumbnailUrl(job);
@@ -966,9 +1041,9 @@ function getJobHTML(job, index = 0) {
                 <span class="job-server">${escapeHTML(job.server_name || 'N/A')}</span>
                 ${workflowBadge}
                 ${showUser}
-                <span class="status-badge ${st.cls}">${st.label}</span>
+                <span class="status-badge ${st.cls}">${statusLabel}</span>
             </div>
-            <span class="job-time">${time}${job.status === 'running' ? ` · ${job.progress}%` : ''}</span>
+            <span class="job-time">${time}${isRunning ? ` · ${job.progress}%` : ''}</span>
             ${progressHTML}
         </div>
         <div class="job-actions">

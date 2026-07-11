@@ -300,9 +300,21 @@ class LoadBalancer:
             try:
                 # Check trạng thái — có thể đã bị cancel trong lúc queue
                 job_check = await db.get_job(job_id)
-                if job_check and job_check["status"] == "cancelled":
+                if not job_check:
+                    logger.info(f"Job {job_id[:8]}… was deleted while queued, skipping")
+                    continue
+                if job_check["status"] == "cancelled":
                     logger.info(f"Job {job_id[:8]}… already cancelled, skipping")
                     continue
+
+                # Claim the queue item before any network wait. If the queued row was
+                # deleted between the read and update, stop before touching ComfyUI.
+                await db.update_job(job_id, status="running")
+                job_check = await db.get_job(job_id)
+                if not job_check:
+                    logger.info(f"Job {job_id[:8]}… was deleted before execution, skipping")
+                    continue
+                await self._broadcast_job_update(job_id, server)
 
                 # Kiểm tra server
                 server.is_online = await comfyui_client.check_server(server.url)
@@ -310,10 +322,6 @@ class LoadBalancer:
                     recovered = await self._wait_until_online(server)
                     if not recovered:
                         raise ConnectionError(f"Server {server.name} offline")
-
-                # → running
-                await db.update_job(job_id, status="running")
-                await self._broadcast_job_update(job_id, server)
 
                 prompt_id = job_data.get("existing_prompt_id")
 

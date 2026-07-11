@@ -261,8 +261,15 @@
                                         <option value="running">Đang tạo</option>
                                         <option value="done">Hoàn tất</option>
                                         <option value="error">Lỗi</option>
-                                        <option value="cancelled">Đã hủy</option>
                                     </select>
+                                </div>
+                                <div class="jobs-view-toggle" role="group" aria-label="Chế độ hiển thị job">
+                                    <button class="jobs-view-btn active" type="button" id="jobs-view-list" title="Xem dạng danh sách" aria-label="Xem dạng danh sách" aria-pressed="true">
+                                        <span class="material-symbols-rounded">view_list</span>
+                                    </button>
+                                    <button class="jobs-view-btn" type="button" id="jobs-view-grid" title="Xem dạng lưới" aria-label="Xem dạng lưới" aria-pressed="false">
+                                        <span class="material-symbols-rounded">grid_view</span>
+                                    </button>
                                 </div>
                                 <button class="btn btn-ghost btn-sm" id="filter-clear" title="Xóa bộ lọc">
                                     <span class="material-symbols-rounded">filter_alt_off</span>
@@ -319,8 +326,6 @@
 <script src="/static/app.js"></script>
 </body>
 </html>
-
-
 
 
 

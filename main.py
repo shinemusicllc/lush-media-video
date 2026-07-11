@@ -516,14 +516,14 @@ async def get_job(job_id: str, user: dict = Depends(get_current_user)):
 
 @app.delete("/api/jobs/{job_id}")
 async def delete_job(job_id: str, user: dict = Depends(get_current_user)):
-    """Xóa job khỏi danh sách (chỉ cho done/error)."""
+    """Xóa job khỏi danh sách, trừ job đang tạo."""
     job = await db.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job không tồn tại")
     if job["username"] != user["username"] and user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Không có quyền")
-    if job["status"] == "running":
-        raise HTTPException(status_code=400, detail="Không thể xóa job đang chạy")
+    if job["status"] in ("running", "demo_running"):
+        raise HTTPException(status_code=400, detail="Không thể xóa job đang tạo")
     removed_files = _delete_job_local_files(job)
     await db.delete_job(job_id)
     return {"status": "deleted", "removed_files": removed_files}
@@ -572,8 +572,17 @@ async def clear_jobs(
                 continue
             authorized_jobs.append(job)
 
-        skipped_running = [job["id"] for job in authorized_jobs if job["status"] == "running"]
-        deletable_jobs = [job for job in authorized_jobs if job["status"] != "running"]
+        skipped_active = [
+            job["id"]
+            for job in authorized_jobs
+            if job["status"] in ("running", "demo_running")
+        ]
+        skipped_running = list(skipped_active)
+        deletable_jobs = [
+            job
+            for job in authorized_jobs
+            if job["status"] not in ("running", "demo_running")
+        ]
 
         removed_uploads = 0
         removed_workflows = 0
@@ -593,6 +602,7 @@ async def clear_jobs(
             "deleted": deleted,
             "deleted_ids": deleted_ids,
             "skipped_running": skipped_running,
+            "skipped_active": skipped_active,
             "removed_files": {
                 "uploads": removed_uploads,
                 "workflows": removed_workflows,
@@ -602,26 +612,36 @@ async def clear_jobs(
 
     if scope == "all":
         jobs_to_clear = await db.get_all_jobs(limit=None, visibility="web")
-        deleted = await db.clear_all_jobs(visibility="web")
     else:
         jobs_to_clear = await db.get_user_jobs(user["username"], limit=None, visibility="web")
-        deleted = await db.clear_jobs_for_user(user["username"], visibility="web")
+
+    skipped_active = [
+        job["id"]
+        for job in jobs_to_clear
+        if job["status"] in ("running", "demo_running")
+    ]
+    deletable_jobs = [
+        job
+        for job in jobs_to_clear
+        if job["status"] not in ("running", "demo_running")
+    ]
 
     removed_uploads = 0
     removed_workflows = 0
     removed_thumbnails = 0
-    for job in jobs_to_clear:
-        if job["status"] == "running":
-            continue
+    for job in deletable_jobs:
         removed = _delete_job_local_files(job)
         removed_uploads += removed["uploads"]
         removed_workflows += removed["workflows"]
         removed_thumbnails += removed["thumbnails"]
 
+    deleted = await db.delete_jobs_by_ids([job["id"] for job in deletable_jobs])
+
     return {
         "status": "cleared",
         "scope": scope,
         "deleted": deleted,
+        "skipped_active": skipped_active,
         "removed_files": {
             "uploads": removed_uploads,
             "workflows": removed_workflows,
