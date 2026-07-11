@@ -4,7 +4,7 @@
  */
 
 const LIST_JOBS_PER_PAGE = 10;
-const GRID_JOBS_PER_PAGE = 20;
+const GRID_JOBS_PER_PAGE = 40;
 const THUMBNAIL_PREFETCH_RADIUS = 1;
 
 const state = {
