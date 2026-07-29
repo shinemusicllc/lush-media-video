@@ -1,0 +1,18 @@
+{
+  "WorkerId": "gpu1",
+  "ComfyDirectory": "D:\\ComfyUI1",
+  "BatchFile": "D:\\ComfyUI1\\run_nvidia_gpu.bat",
+  "LocalPort": 8188,
+  "CudaDevice": 0,
+  "RemoteHost": "deploy@82.197.71.6",
+  "RemoteBindAddress": "172.19.0.1",
+  "RemotePort": 18188,
+  "PrivateKey": "D:\\ComfyUI-Autostart\\gpu1_worker_ed25519",
+  "RuntimeDirectory": "D:\\ComfyUI-Autostart",
+  "HealthIntervalSeconds": 10,
+  "HealthFailureThreshold": 3,
+  "StartupGraceSeconds": 300,
+  "SshBackoffBaseSeconds": 5,
+  "SshBackoffMaxSeconds": 60,
+  "LogMaxBytes": 10485760
+}
