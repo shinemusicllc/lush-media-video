@@ -9,3 +9,4 @@
 | DEPLOY-003 | VPS deploy uses the `lushvideo` compose project and an internal bind on `127.0.0.1:${APP_PORT:-8011}`. | Public traffic is routed by the shared reverse proxy. |
 | BOT-001 | Telegram long polling runs inside the FastAPI app process. | `telegram_bot.py` starts during FastAPI startup when `TELEGRAM_BOT_TOKEN` is configured. |
 | WORKFLOW-001 | Workflow submissions normalize Wan 2.2 high/low diffusion model filenames at runtime. | Web uploads, Telegram workflows, default workflows, and prompt build fallback must normalize stale UNETLoader names to the configured fp8 KJ files before archive/submission. |
+| GPU-001 | Each physical Windows machine runs one independently supervised ComfyUI worker and one dedicated reverse SSH tunnel. | Worker IDs and VPS ports are stable (`gpu1`/`18188`, `gpu2`/`18288`); the backend schedules only online workers, preferring idle capacity and using round-robin as the tie-breaker. |

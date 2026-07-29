@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2026-07-29 17:30 - Split GPU1 into an independently supervised worker
+- Changed: synchronized local/GitHub/VPS source, made offline-aware idle/queue/round-robin scheduling and terminal ComfyUI history recovery explicit, and deployed commit `79fb6f4`.
+- Added: tested Windows ComfyUI/SSH watchdog scripts, a `SYSTEM` startup task for GPU1, a restricted reverse tunnel on `172.19.0.1:18188`, backend/supervisor regression tests, and the GPU2 handoff runbook.
+- Affected: `comfyui_client.py`, `load_balancer.py`, `tests/`, `deploy/windows/`, `docs/PROJECT_BRIEF.md`, `docs/MEMORY_INDEX.md`, `docs/DECISIONS*`, `docs/modules/gpu-workers.md`.
+- Risk: Medium; connectivity and self-recovery are verified, but GPU1 twice hit a native `torch.OutOfMemoryError` on the existing Full HD Wan workflow, so hardware/runtime VRAM stability remains a separate follow-up.
+
 ### 2026-05-28 - Switch diffusion models to Wan 2.2 fp8 KJ
 - Changed: switched the default workflow, bundled workflow presets, and runtime diffusion model normalization to `Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors` and `Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors`.
 - Affected files: `config.py`, `FULLHD_6S_Loop_API.json`, `workflows/Jazz & lofi 6s Khong Loop.json`, `workflows/presets/*.json`, `docs/DECISIONS_INDEX.md`, `docs/DECISIONS.md`, `docs/CHANGELOG.md`
