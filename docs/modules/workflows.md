@@ -52,8 +52,11 @@ python -m unittest tests.test_workflow_vae_config -v
   RAM and native-crashed in `ucrtbase.dll` (`0xc0000409`) before producing
   history/output. The supervisor recovered correctly, but this attempt is not
   a successful render validation.
-- Before enabling a worker in production, repeat one 61-frame render with
-  enough free system RAM and no unrelated memory-heavy apps.
+- On 2026-07-30, two fresh-seed 61-frame renders then completed consecutively
+  on GPU1 without calling `/free`. The cold job took 351.3 seconds with
+  12.22 GB minimum available RAM; the warm job took 290.7 seconds with
+  15.71 GB minimum available RAM. Both produced MP4 output, PID `3228` stayed
+  unchanged, and the queue returned to empty.
 
 ## Invariants
 
@@ -63,3 +66,5 @@ python -m unittest tests.test_workflow_vae_config -v
   updated and tested.
 - Preserve workflow API node IDs and existing links unless a migration is
   explicitly planned.
+- Preserve ComfyUI's warm model cache between normal consecutive jobs; do not
+  call `/free` after every completion.

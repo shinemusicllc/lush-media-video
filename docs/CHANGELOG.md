@@ -179,3 +179,9 @@
 - Restored the fixed completed-job contract (video + last-frame image) and added a workflow download action to Grid cards.
 - Added compact status badges in Grid while preserving the last selected List/Grid mode in browser storage.
 - Allowed queued jobs to be deleted while keeping running jobs protected; workers now skip queue entries whose DB rows were deleted before execution.
+
+## 2026-07-30 - Validate consecutive warm-cache GPU1 renders
+
+- Verified two fresh-seed 61-frame jobs completed consecutively on GPU1/8188 without `/free`; the warm job reduced runtime from 351.3 to 290.7 seconds and kept at least 15.71 GB RAM available.
+- Confirmed both MP4 outputs, an empty final queue, and the same sole ComfyUI PID throughout.
+- Documented that normal worker operation preserves ComfyUI's model cache between jobs.
