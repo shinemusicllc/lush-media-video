@@ -54,7 +54,7 @@ else:
 # ============================================================
 WORKFLOW_PATH = os.environ.get(
     "WORKFLOW_PATH",
-    os.path.join(BASE_DIR, "workflows", "Jazz & lofi 5s Khong Loop.json"),
+    os.path.join(BASE_DIR, "workflows", "Jazz & lofi 6s Khong Loop.json"),
 )
 _LOCAL_WORKFLOW_PRESET_DIR = r"C:\Users\Admin\Downloads\wf" if os.name == "nt" else ""
 _BUNDLED_WORKFLOW_PRESET_DIR = os.path.join(BASE_DIR, "workflows", "presets")

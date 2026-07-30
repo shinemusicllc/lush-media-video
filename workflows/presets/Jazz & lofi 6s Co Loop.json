@@ -8,15 +8,11 @@
       "vae": [
         "39",
         0
-      ],
-      "tile_size": 512,
-      "overlap": 64,
-      "temporal_size": 16,
-      "temporal_overlap": 4
+      ]
     },
-    "class_type": "VAEDecodeTiled",
+    "class_type": "VAEDecode",
     "_meta": {
-      "title": "VAE Decode (Tiled)"
+      "title": "VAE Decode"
     }
   },
   "38": {
@@ -234,7 +230,7 @@
     "inputs": {
       "width": 1920,
       "height": 1088,
-      "length": 61,
+      "length": 73,
       "batch_size": 1,
       "positive": [
         "113",

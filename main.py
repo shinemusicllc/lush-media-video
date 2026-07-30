@@ -194,8 +194,8 @@ def _workflow_preset_dir() -> Path | None:
 
 
 _WORKFLOW_PRESET_ALIASES = {
-    "Jazz & lofi 6s Co Loop.json": "Jazz & lofi 5s Co Loop.json",
-    "Jazz & lofi 6s Khong Loop.json": "Jazz & lofi 5s Khong Loop.json",
+    "Jazz & lofi 5s Co Loop.json": "Jazz & lofi 6s Co Loop.json",
+    "Jazz & lofi 5s Khong Loop.json": "Jazz & lofi 6s Khong Loop.json",
 }
 
 

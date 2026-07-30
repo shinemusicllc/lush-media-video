@@ -8,16 +8,16 @@ import main
 
 
 class WorkflowPresetAliasTests(unittest.TestCase):
-    def test_default_workflow_uses_five_second_filename(self):
+    def test_default_workflow_uses_six_second_filename(self):
         self.assertEqual(
-            "Jazz & lofi 5s Khong Loop.json",
+            "Jazz & lofi 6s Khong Loop.json",
             Path(config.WORKFLOW_PATH).name,
         )
 
-    def test_old_jazz_preset_names_resolve_to_new_files(self):
+    def test_old_five_second_jazz_names_resolve_to_six_second_files(self):
         aliases = {
-            "Jazz & lofi 6s Co Loop.json": "Jazz & lofi 5s Co Loop.json",
-            "Jazz & lofi 6s Khong Loop.json": "Jazz & lofi 5s Khong Loop.json",
+            "Jazz & lofi 5s Co Loop.json": "Jazz & lofi 6s Co Loop.json",
+            "Jazz & lofi 5s Khong Loop.json": "Jazz & lofi 6s Khong Loop.json",
         }
 
         with tempfile.TemporaryDirectory() as temp_dir:
