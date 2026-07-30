@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2026-07-30 - Tile bundled VAE decode and enforce singleton GPU workers
+- Changed: fallback workflow and all five presets now use `VAEDecodeTiled` with `512/64/16/4`; all bundled Wan workflows use 61 source frames while existing filenames remain stable.
+- Added: regression tests for workflow VAE/frame contracts and supervisor checks for batch/config agreement, cross-port process reconciliation, and launch guarding.
+- Verified: GPU1 kill/restart retained one supervisor, one ComfyUI process, only listener 8188, no listener 8288, and one watchdog restart entry.
+- Risk: a 61-frame render attempt native-crashed while system RAM was exhausted, so production scheduling remains disabled pending a clean render with adequate free RAM.
+
 ### 2026-07-29 17:30 - Split GPU1 into an independently supervised worker
 - Changed: synchronized local/GitHub/VPS source, made offline-aware idle/queue/round-robin scheduling and terminal ComfyUI history recovery explicit, and deployed commit `79fb6f4`.
 - Added: tested Windows ComfyUI/SSH watchdog scripts, a `SYSTEM` startup task for GPU1, a restricted reverse tunnel on `172.19.0.1:18188`, backend/supervisor regression tests, and the GPU2 handoff runbook.

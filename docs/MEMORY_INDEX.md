@@ -13,6 +13,8 @@ Read only when relevant:
 - `docs/modules/deploy.md`: VPS deploy layout, clean tree policy, runtime data boundaries.
 - `docs/modules/gpu-workers.md`: Windows ComfyUI supervisor, reverse SSH port
   contract, worker health, scheduling, and GPU2 handoff.
+- `docs/modules/workflows.md`: bundled default/preset workflow contract,
+  tiled-VAE settings, frame-count policy, and runtime validation notes.
 - `docs/CHANGELOG.md`: short chronological change summaries.
 - `docs/DECISIONS.md`: older decision log; may contain mojibake and history-heavy context.
 - `docs/PROJECT_CONTEXT.md` and `docs/WORKLOG.md`: legacy context/worklog; do not read by default.

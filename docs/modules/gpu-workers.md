@@ -140,6 +140,13 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
 - The supervisor uses one file lock, refuses unmanaged processes on the worker
   port, rotates logs, restarts unhealthy ComfyUI, and reconnects SSH with
   bounded backoff.
+- The batch `--port` and `--cuda-device` values must match worker config or the
+  supervisor refuses to start.
+- The supervisor reconciles every ComfyUI process under `ComfyDirectory`,
+  including wrong-port or duplicate processes, and keeps only one process on
+  `LocalPort`.
+- `LaunchGuardSeconds=30` prevents repeated batch launches while Python is
+  still forming after a restart.
 - Never restart a worker or redeploy the VPS app while its ComfyUI queue has a
   running or pending job.
 
@@ -155,6 +162,9 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
   `torch.OutOfMemoryError`. The next submitted workflow was byte-identical to a
   previously successful workflow, so this was runtime/VRAM state rather than a
   bad workflow file.
+- On 2026-07-30, GPU1 kill/restart validation changed PID `21900 -> 3228`.
+  Health returned 200, exactly one supervisor and one ComfyUI process remained,
+  only port 8188 listened, and the watchdog recorded exactly one restart.
 
 ## Invariants
 
@@ -162,6 +172,9 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
 - Worker IDs and remote ports are unique and stable.
 - Each worker has a unique restricted SSH key.
 - ComfyUI listens on loopback only.
+- Each `ComfyDirectory` may own only one ComfyUI process; wrong-port and
+  duplicate processes are stopped by its supervisor.
+- Runtime batch port/CUDA must match the worker JSON.
 - Reverse listeners bind to the Docker gateway, not `0.0.0.0`.
 - `origin/main` remains the canonical source; runtime configs, private keys,
   secrets, data, and logs stay out of Git.
@@ -175,9 +188,14 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
 - Do not loosen the SSH key to an unrestricted interactive shell.
 - Do not add GPU2 to `deploy/.env` until its tunnel passes host and container
   health checks.
+- Set `LaunchGuardSeconds` to `30` on GPU2 and verify its batch contains
+  `--cuda-device 0 --listen 127.0.0.1 --port 8188`.
+- Run a real 61-frame bundled workflow with sufficient free system RAM before
+  adding GPU2 to the scheduler.
 
 ## Related Decisions
 
 - `DEPLOY-001`
 - `DEPLOY-002`
 - `GPU-001`
+- `GPU-002`
