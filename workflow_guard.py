@@ -36,6 +36,31 @@ def enforce_locked_diffusion_models(workflow: dict[str, Any]) -> int:
     return changed
 
 
+def enforce_locked_video_length(workflow: dict[str, Any]) -> int:
+    """Force Wan source video generation to the configured locked frame count."""
+    changed = 0
+    locked_length = config.WORKFLOW_DEFAULTS["length"]
+
+    for node in _iter_nodes(workflow):
+        if not _is_wan_video_latent(node):
+            continue
+
+        inputs = node.get("inputs")
+        if isinstance(inputs, dict):
+            if inputs.get("length") != locked_length:
+                inputs["length"] = locked_length
+                changed += 1
+            continue
+
+        widgets = node.get("widgets_values")
+        if isinstance(widgets, list) and len(widgets) > 2:
+            if widgets[2] != locked_length:
+                widgets[2] = locked_length
+                changed += 1
+
+    return changed
+
+
 def _iter_nodes(workflow: dict[str, Any]):
     nodes = workflow.get("nodes")
     if isinstance(nodes, list):
@@ -50,6 +75,13 @@ def _iter_nodes(workflow: dict[str, Any]):
 
 def _is_unet_loader(node: dict[str, Any]) -> bool:
     return node.get("class_type") == "UNETLoader" or node.get("type") == "UNETLoader"
+
+
+def _is_wan_video_latent(node: dict[str, Any]) -> bool:
+    return (
+        node.get("class_type") == "WanFirstLastFrameToVideo"
+        or node.get("type") == "WanFirstLastFrameToVideo"
+    )
 
 
 def _locked_model_for_name(value: Any) -> str | None:

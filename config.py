@@ -102,6 +102,7 @@ TELEGRAM_POLL_INTERVAL_S = float(os.environ.get("TELEGRAM_POLL_INTERVAL_S", "2")
 WORKFLOW_DEFAULTS = {
     "width": 1920,
     "height": 1080,
+    "length": 61,
 }
 LOCKED_HIGH_DIFFUSION_MODEL = "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors"
 LOCKED_LOW_DIFFUSION_MODEL = "Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors"
