@@ -40,7 +40,10 @@ import httpx
 from load_balancer import balancer
 import comfyui_client
 from telegram_bot import telegram_bot_service
-from workflow_guard import enforce_locked_diffusion_models
+from workflow_guard import (
+    enforce_locked_diffusion_models,
+    enforce_locked_video_length,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -407,6 +410,14 @@ async def create_job(
             "Locked diffusion model names for job %s (%s UNETLoader nodes)",
             job_id[:8],
             locked_model_updates,
+        )
+
+    locked_length_updates = enforce_locked_video_length(workflow_payload)
+    if locked_length_updates:
+        logger.info(
+            "Locked video length for job %s (%s Wan video nodes)",
+            job_id[:8],
+            locked_length_updates,
         )
 
     workflow_archive_file = f"{job_id}.json"

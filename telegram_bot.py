@@ -22,7 +22,10 @@ import httpx
 import config
 import database as db
 from auth import create_token, hash_password
-from workflow_guard import enforce_locked_diffusion_models
+from workflow_guard import (
+    enforce_locked_diffusion_models,
+    enforce_locked_video_length,
+)
 
 logger = logging.getLogger("telegram_bot")
 
@@ -289,6 +292,14 @@ class TelegramBotService:
                 "Locked Telegram workflow diffusion models for chat %s (%s UNETLoader nodes)",
                 chat_id,
                 locked_model_updates,
+            )
+
+        locked_length_updates = enforce_locked_video_length(workflow_data)
+        if locked_length_updates:
+            logger.info(
+                "Locked Telegram workflow video length for chat %s (%s Wan video nodes)",
+                chat_id,
+                locked_length_updates,
             )
 
         pending = self._pending.setdefault(chat_id, {})

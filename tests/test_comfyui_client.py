@@ -1,6 +1,6 @@
 import unittest
 
-from comfyui_client import _classify_history_item
+from comfyui_client import _classify_history_item, build_prompt
 
 
 class ClassifyHistoryItemTests(unittest.TestCase):
@@ -41,6 +41,25 @@ class ClassifyHistoryItemTests(unittest.TestCase):
         self.assertIsNone(
             _classify_history_item({"status": {"status_str": "running"}})
         )
+
+
+class BuildPromptPolicyTests(unittest.TestCase):
+    def test_build_prompt_locks_video_length(self):
+        workflow = {
+            "1": {
+                "class_type": "LoadImage",
+                "inputs": {"image": "old.png"},
+            },
+            "2": {
+                "class_type": "WanFirstLastFrameToVideo",
+                "inputs": {"length": 73},
+            },
+        }
+
+        prompt = build_prompt("new.png", seed=1, workflow_data=workflow)
+
+        self.assertEqual(61, prompt["2"]["inputs"]["length"])
+        self.assertEqual(73, workflow["2"]["inputs"]["length"])
 
 
 if __name__ == "__main__":
