@@ -42,7 +42,7 @@ import comfyui_client
 from telegram_bot import telegram_bot_service
 from workflow_guard import (
     enforce_locked_diffusion_models,
-    enforce_locked_video_length,
+    enforce_max_video_length,
 )
 
 logging.basicConfig(
@@ -412,12 +412,12 @@ async def create_job(
             locked_model_updates,
         )
 
-    locked_length_updates = enforce_locked_video_length(workflow_payload)
-    if locked_length_updates:
+    length_updates = enforce_max_video_length(workflow_payload)
+    if length_updates:
         logger.info(
-            "Locked video length for job %s (%s Wan video nodes)",
+            "Capped/defaulted video length for job %s (%s Wan video nodes)",
             job_id[:8],
-            locked_length_updates,
+            length_updates,
         )
 
     workflow_archive_file = f"{job_id}.json"

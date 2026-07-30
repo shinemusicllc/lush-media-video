@@ -17,7 +17,7 @@ import websockets
 from config import WORKFLOW_PATH, WORKFLOW_DEFAULTS
 from workflow_guard import (
     enforce_locked_diffusion_models,
-    enforce_locked_video_length,
+    enforce_max_video_length,
 )
 
 logger = logging.getLogger("comfyui_client")
@@ -123,11 +123,11 @@ def build_prompt(
             locked_model_updates,
         )
 
-    locked_length_updates = enforce_locked_video_length(prompt)
-    if locked_length_updates:
+    length_updates = enforce_max_video_length(prompt)
+    if length_updates:
         logger.info(
-            "Locked video length before prompt build (%s Wan video nodes)",
-            locked_length_updates,
+            "Capped/defaulted video length before prompt build (%s Wan video nodes)",
+            length_updates,
         )
 
     patched_image = False

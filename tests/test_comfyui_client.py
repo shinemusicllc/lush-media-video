@@ -44,7 +44,7 @@ class ClassifyHistoryItemTests(unittest.TestCase):
 
 
 class BuildPromptPolicyTests(unittest.TestCase):
-    def test_build_prompt_locks_video_length(self):
+    def test_build_prompt_preserves_five_second_video_length(self):
         workflow = {
             "1": {
                 "class_type": "LoadImage",
@@ -52,14 +52,31 @@ class BuildPromptPolicyTests(unittest.TestCase):
             },
             "2": {
                 "class_type": "WanFirstLastFrameToVideo",
-                "inputs": {"length": 73},
+                "inputs": {"length": 61},
             },
         }
 
         prompt = build_prompt("new.png", seed=1, workflow_data=workflow)
 
         self.assertEqual(61, prompt["2"]["inputs"]["length"])
-        self.assertEqual(73, workflow["2"]["inputs"]["length"])
+        self.assertEqual(61, workflow["2"]["inputs"]["length"])
+
+    def test_build_prompt_caps_overlong_video_at_73_frames(self):
+        workflow = {
+            "1": {
+                "class_type": "LoadImage",
+                "inputs": {"image": "old.png"},
+            },
+            "2": {
+                "class_type": "WanFirstLastFrameToVideo",
+                "inputs": {"length": 85},
+            },
+        }
+
+        prompt = build_prompt("new.png", seed=1, workflow_data=workflow)
+
+        self.assertEqual(73, prompt["2"]["inputs"]["length"])
+        self.assertEqual(85, workflow["2"]["inputs"]["length"])
 
 
 if __name__ == "__main__":

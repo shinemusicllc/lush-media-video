@@ -64,12 +64,12 @@ class WebWorkflowIngressTests(unittest.IsolatedAsyncioTestCase):
                 )
 
             queued_workflow = submit_job.await_args.kwargs["workflow_data"]
-            self.assertEqual(61, queued_workflow["2"]["inputs"]["length"])
+            self.assertEqual(73, queued_workflow["2"]["inputs"]["length"])
 
             archive_files = list(archive_dir.glob("*.json"))
             self.assertEqual(1, len(archive_files))
             archived = json.loads(archive_files[0].read_text(encoding="utf-8"))
-            self.assertEqual(61, archived["2"]["inputs"]["length"])
+            self.assertEqual(73, archived["2"]["inputs"]["length"])
 
 
 class TelegramWorkflowIngressTests(unittest.IsolatedAsyncioTestCase):
@@ -92,7 +92,7 @@ class TelegramWorkflowIngressTests(unittest.IsolatedAsyncioTestCase):
         )
 
         pending_workflow = service._pending[123]["workflow_data"]
-        self.assertEqual(61, pending_workflow["2"]["inputs"]["length"])
+        self.assertEqual(73, pending_workflow["2"]["inputs"]["length"])
         service._maybe_enqueue.assert_awaited_once_with(123)
 
 

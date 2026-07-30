@@ -36,10 +36,10 @@ def enforce_locked_diffusion_models(workflow: dict[str, Any]) -> int:
     return changed
 
 
-def enforce_locked_video_length(workflow: dict[str, Any]) -> int:
-    """Force Wan source video generation to the configured locked frame count."""
+def enforce_max_video_length(workflow: dict[str, Any]) -> int:
+    """Cap Wan source video generation without changing valid shorter videos."""
     changed = 0
-    locked_length = config.WORKFLOW_DEFAULTS["length"]
+    max_length = config.WORKFLOW_DEFAULTS["length"]
 
     for node in _iter_nodes(workflow):
         if not _is_wan_video_latent(node):
@@ -47,15 +47,19 @@ def enforce_locked_video_length(workflow: dict[str, Any]) -> int:
 
         inputs = node.get("inputs")
         if isinstance(inputs, dict):
-            if inputs.get("length") != locked_length:
-                inputs["length"] = locked_length
+            current_length = inputs.get("length")
+            normalized_length = _bounded_video_length(current_length, max_length)
+            if current_length != normalized_length:
+                inputs["length"] = normalized_length
                 changed += 1
             continue
 
         widgets = node.get("widgets_values")
         if isinstance(widgets, list) and len(widgets) > 2:
-            if widgets[2] != locked_length:
-                widgets[2] = locked_length
+            current_length = widgets[2]
+            normalized_length = _bounded_video_length(current_length, max_length)
+            if current_length != normalized_length:
+                widgets[2] = normalized_length
                 changed += 1
 
     return changed
@@ -82,6 +86,12 @@ def _is_wan_video_latent(node: dict[str, Any]) -> bool:
         node.get("class_type") == "WanFirstLastFrameToVideo"
         or node.get("type") == "WanFirstLastFrameToVideo"
     )
+
+
+def _bounded_video_length(value: Any, max_length: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return max_length
+    return min(value, max_length)
 
 
 def _locked_model_for_name(value: Any) -> str | None:
