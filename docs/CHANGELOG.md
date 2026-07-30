@@ -185,3 +185,9 @@
 - Verified two fresh-seed 61-frame jobs completed consecutively on GPU1/8188 without `/free`; the warm job reduced runtime from 351.3 to 290.7 seconds and kept at least 15.71 GB RAM available.
 - Confirmed both MP4 outputs, an empty final queue, and the same sole ComfyUI PID throughout.
 - Documented that normal worker operation preserves ComfyUI's model cache between jobs.
+
+## 2026-07-30 - Khóa workflow về 5 giây
+
+- Đổi tên fallback và hai preset Jazz từ `6s` thành `5s`; API chỉ liệt kê tên mới nhưng vẫn resolve hai alias cũ.
+- Khóa mọi node `WanFirstLastFrameToVideo` ở `61` frame cho web, Telegram, archive và prompt cuối gửi sang ComfyUI.
+- Thêm regression test cho guard, preset alias, workflow đóng gói và các đường nhận workflow.

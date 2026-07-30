@@ -11,7 +11,7 @@
 ## Canonical Files
 
 - Fallback:
-  `workflows/Jazz & lofi 6s Khong Loop.json`
+  `workflows/Jazz & lofi 5s Khong Loop.json`
 - Presets:
   `workflows/presets/*.json`
 
@@ -31,10 +31,11 @@ Every fallback/preset workflow uses one `VAEDecodeTiled` node with:
 }
 ```
 
-Every bundled workflow uses
-`WanFirstLastFrameToVideo.length=61`. The three Jazz filenames still contain
-`6s` for backward compatibility with saved frontend selections, but with RIFE
-multiplier 2 and 24 fps their effective duration is about 5 seconds.
+Mọi workflow đóng gói dùng
+`WanFirstLastFrameToVideo.length=61`. Web, Telegram và `build_prompt` cùng áp
+dụng guard này cho workflow người dùng tải lên trước khi archive và submit.
+Danh sách preset chỉ hiển thị tên `5s`; hai tên Jazz `6s` cũ là alias ẩn trỏ
+tới file `5s`.
 
 Regression test:
 
@@ -61,7 +62,7 @@ python -m unittest tests.test_workflow_vae_config -v
 ## Invariants
 
 - Do not replace tiled decode with regular `VAEDecode` for Wan video presets.
-- Do not raise bundled frame count above 61 without a measured RAM/VRAM test.
+- Do not bypass the exact 61-frame lock for any accepted workflow.
 - Keep fallback and same-named preset as separate source files; both must be
   updated and tested.
 - Preserve workflow API node IDs and existing links unless a migration is
