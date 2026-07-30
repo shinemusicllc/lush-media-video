@@ -29,3 +29,11 @@
 | Preserve ComfyUI model cache between consecutive jobs | Two fresh-seed 61-frame renders completed consecutively on GPU1 without `/free`; the warm second render was faster and retained more RAM headroom than the cold first render. Full unload after every job would add reload latency without improving this measured path. | GPU worker performance and stability | 2026-07-30 |
 | Giới hạn workflow được app chấp nhận ở tối đa 73 frame | Worker 128 GB có đủ headroom cho regular VAE 73 frame; workflow 5 giây hợp lệ phải giữ 61 frame thay vì bị kéo dài. Web, Telegram và prompt cuối cùng áp dụng cùng policy trước khi archive/submit. | Workflow reliability | 2026-07-30 |
 | Run GPU1 from a visible interactive launcher | A visible ComfyUI console lets an ordinary on-site operator inspect output and recover the worker by double-clicking one Desktop batch. The singleton supervisor/watchdog remains active, while the legacy `SYSTEM` task stays disabled to prevent duplicate runtimes. | GPU worker operations | 2026-07-30 |
+## GPU-004 - Guard visible workers with an interactive-user task
+
+- Visible GPU workers run only after Windows login and keep the legacy
+  `SYSTEM` worker task disabled for rollback.
+- A separate hidden task under the exact interactive user monitors the visible
+  supervisor and opens a new worker window when the window or supervisor exits.
+- The guard is single-instance, preserves active ComfyUI jobs, and only cleans
+  orphan ComfyUI/tunnel processes scoped to that worker before an idle restart.

@@ -320,12 +320,17 @@ function Assert-ComfyBatchContract {
 
 function New-VisibleLauncherContent {
     param(
-        [Parameter(Mandatory)][string]$VisibleLauncherPath,
-        [Parameter(Mandatory)][string]$ConfigPath
+        [Parameter(Mandatory)][string]$GuardTaskName
     )
 
     return @"
 @echo off
-call "$VisibleLauncherPath" "$ConfigPath"
+schtasks.exe /Run /TN "$GuardTaskName" >nul
+if errorlevel 1 (
+    echo Failed to start visible worker guard task: $GuardTaskName
+    echo Run the visible-launcher installer again from elevated PowerShell.
+    pause
+    exit /b 1
+)
 "@
 }

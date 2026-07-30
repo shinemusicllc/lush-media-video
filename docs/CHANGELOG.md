@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 2026-07-31 - Auto-reopen killed visible worker windows
+- Added: a single-instance per-user visible guard task that automatically opens a new interactive worker window when the window or supervisor exits.
+- Changed: Desktop/Startup launchers now start the guard task; the legacy `SYSTEM` worker task remains disabled, and scoped orphan ComfyUI/tunnel cleanup prevents duplicate ports during recovery.
+
 ### 2026-07-30 - Restore regular VAE and duration-specific workflows
 - Changed: Jazz fallback/presets return to `6s`/73 frames; Kling and Livewallpaper remain `5s`/61 frames; all bundled workflows use regular `VAEDecode`.
 - Changed: Web, Telegram and `build_prompt` now cap video workflows at 73 frames without lengthening valid shorter workflows.

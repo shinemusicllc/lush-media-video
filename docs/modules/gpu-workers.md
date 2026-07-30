@@ -38,6 +38,8 @@ If the gateway changes, update the worker `RemoteBindAddress` and all matching
   `deploy/windows/install-comfyui-worker-visible-launcher.ps1`
 - Visible batch entrypoint:
   `deploy/windows/start-comfyui-worker-visible.bat`
+- Visible window guard:
+  `deploy/windows/comfyui-worker-visible-guard.ps1`
 - Backend scheduler: `load_balancer.py`
 - ComfyUI WebSocket/history handling: `comfyui_client.py`
 
@@ -92,11 +94,15 @@ The installer:
 - stops only ComfyUI processes rooted in the configured `ComfyDirectory`;
 - grants private-key read access to the exact interactive Windows identity;
 - creates `START LushMedia GPU1.bat` on Desktop and one Startup shortcut.
+- registers a hidden per-user `*-VisibleGuard` task with an interactive logon
+  token and restart-on-failure settings.
 
-The Desktop batch runs the same singleton supervisor with `-Interactive`.
-ComfyUI shares that console through `-NoNewWindow`, so native output remains
-visible. If ComfyUI crashes, the supervisor starts it again in the same window.
-If the whole window is closed, double-click the Desktop batch to recover it.
+The guard starts the same singleton supervisor with `-Interactive`. ComfyUI
+shares that console through `-NoNewWindow`, so native output remains visible.
+If ComfyUI crashes, the supervisor restarts it in the same window. If the
+whole worker window or supervisor exits, the independent per-user guard opens
+a new visible window automatically. The Desktop batch asks the guard task to
+run and remains the manual recovery entrypoint.
 
 Visible mode starts only after the Windows user logs in. It does not make the
 worker available at the pre-login screen. Never enable the legacy Scheduled
@@ -252,6 +258,9 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
 - Reverse listeners bind to the Docker gateway, not `0.0.0.0`.
 - A worker uses either visible launcher mode or `SYSTEM` Scheduled Task mode,
   never both.
+- Visible mode uses a separate interactive-user guard task; it must never run
+  as `SYSTEM` because a SYSTEM process cannot reliably create a window on the
+  signed-in desktop.
 - `origin/main` remains the canonical source; runtime configs, private keys,
   secrets, data, and logs stay out of Git.
 
@@ -266,8 +275,8 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
   health checks.
 - Set `LaunchGuardSeconds` to `30` on GPU2 and verify its batch contains
   `--cuda-device 0 --listen 127.0.0.1 --port 8188`.
-- Visible launcher autostart requires a Windows login; it cannot recover a
-  worker that remains at the login screen after reboot.
+- Visible launcher and its guard require a Windows login; they cannot recover
+  a worker that remains at the login screen after reboot.
 - Run a real 61-frame bundled workflow with sufficient free system RAM before
   adding GPU2 to the scheduler.
 
