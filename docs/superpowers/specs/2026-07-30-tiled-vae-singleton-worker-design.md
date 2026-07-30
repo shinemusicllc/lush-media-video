@@ -40,6 +40,12 @@ nguyên liên kết `samples` và `vae`, đồng thời thêm:
 }
 ```
 
+Theo cập nhật phạm vi đã được duyệt trong lúc triển khai, ba workflow Jazz mang
+tên 6s cũng đổi `WanFirstLastFrameToVideo.length` từ `73` về `61`, bằng đúng
+chuẩn của các workflow 5s. Tên file/preset được giữ nguyên để không phá API và
+lựa chọn đã lưu trên frontend. Với RIFE multiplier 2 và output 24 fps, video
+thực tế giảm từ khoảng 6 giây về khoảng 5 giây để tăng biên an toàn VRAM.
+
 ## Cơ chế singleton
 
 Nguồn lỗi hiện tại là cấu hình worker đặt `LocalPort=8188` nhưng batch runtime
@@ -73,8 +79,8 @@ Phương án triển khai:
 
 1. Xác nhận queue 8288 rỗng rồi kill process 8288.
 2. Bật Scheduled Task và chờ `http://127.0.0.1:8188/system_stats` trả HTTP 200.
-3. Chạy workflow 73 frame đã tái hiện lỗi, xác nhận history `success` và có
-   file video output.
+3. Giữ kết quả workflow 73 frame làm baseline, sau đó chạy workflow nguồn đã
+   giảm còn 61 frame và xác nhận history `success` cùng file video output.
 4. Khi queue 8188 rỗng, kill process 8188.
 5. Chờ watchdog phục hồi, sau đó xác nhận:
    - đúng một ComfyUI process thuộc `D:\ComfyUI1`;
@@ -97,7 +103,8 @@ Phương án triển khai:
 
 - Sáu workflow nguồn trong repo và container production có cấu hình tiled đã
   chốt.
-- Job 73 frame hoàn tất trên cổng 8188.
+- Baseline 73 frame và workflow production 61 frame đều hoàn tất trên cổng
+  8188.
 - Bài test kill/restart tạo lại đúng một process 8188.
 - Cổng 8288 không còn listener.
 - Backend production chưa giao job mới cho GPU1.

@@ -42,6 +42,25 @@ class WorkflowVaeConfigTests(unittest.TestCase):
                 for key, value in EXPECTED_TILING.items():
                     self.assertEqual(value, vae_node["inputs"].get(key), key)
 
+    def test_default_and_all_presets_use_five_second_frame_count(self):
+        workflow_paths = [
+            DEFAULT_WORKFLOW,
+            *sorted(PRESET_DIRECTORY.glob("*.json")),
+        ]
+
+        for path in workflow_paths:
+            with self.subTest(workflow=path.name):
+                workflow = json.loads(path.read_text(encoding="utf-8-sig"))
+                video_latent_nodes = [
+                    node
+                    for node in workflow.values()
+                    if isinstance(node, dict)
+                    and node.get("class_type") == "WanFirstLastFrameToVideo"
+                ]
+
+                self.assertEqual(1, len(video_latent_nodes))
+                self.assertEqual(61, video_latent_nodes[0]["inputs"]["length"])
+
 
 if __name__ == "__main__":
     unittest.main()

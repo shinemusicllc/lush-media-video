@@ -234,7 +234,7 @@
     "inputs": {
       "width": 1920,
       "height": 1088,
-      "length": 73,
+      "length": 61,
       "batch_size": 1,
       "positive": [
         "113",

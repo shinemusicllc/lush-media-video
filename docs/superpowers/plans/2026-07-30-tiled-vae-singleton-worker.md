@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Chuyển workflow default/preset sang tiled VAE và bảo đảm GPU1 chỉ chạy một ComfyUI trên cổng 8188, kể cả sau crash hoặc bị kill.
+**Goal:** Chuyển workflow default/preset sang tiled VAE, giảm workflow 6s về
+61 frame và bảo đảm GPU1 chỉ chạy một ComfyUI trên cổng 8188, kể cả sau crash
+hoặc bị kill.
 
 **Architecture:** Workflow JSON trong repo là canonical source cho app host. Windows supervisor tiếp tục dùng Scheduled Task, exclusive file lock và batch hiện có, nhưng bổ sung validation batch/config, quét process theo `ComfyDirectory` trên mọi cổng, reconciliation duplicate/orphan và launch guard.
 
@@ -12,6 +14,8 @@
 
 - Chỉ sửa 1 workflow fallback tại `config.WORKFLOW_PATH` và 5 file trong `workflows/presets`.
 - Tiled VAE dùng chính xác `tile_size=512`, `overlap=64`, `temporal_size=16`, `temporal_overlap=4`.
+- Ba workflow Jazz mang tên 6s dùng `length=61`, bằng workflow 5s; giữ nguyên
+  tên file để không đổi API/frontend contract.
 - Không migrate `/data/workflows` hoặc hai file `FULLHD_*` legacy.
 - GPU1 chỉ bind `127.0.0.1:8188`; không để listener 8288.
 - Backend production giữ `COMFYUI_SERVERS_JSON=[]` trong toàn bộ đợt triển khai.
@@ -57,6 +61,10 @@ def test_default_and_presets_use_temporally_tiled_vae(self):
         for key, value in EXPECTED_TILING.items():
             self.assertEqual(value, vae_nodes[0]["inputs"].get(key), (path, key))
 ```
+
+Thêm test độc lập xác nhận toàn bộ fallback/preset dùng
+`WanFirstLastFrameToVideo.length=61`; trước migration test phải fail đúng ba
+file Jazz đang là 73.
 
 - [ ] **Step 2: Chạy test và xác nhận RED**
 
