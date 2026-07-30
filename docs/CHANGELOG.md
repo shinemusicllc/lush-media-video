@@ -3,7 +3,8 @@
 ### 2026-07-30 - Restore regular VAE and duration-specific workflows
 - Changed: Jazz fallback/presets return to `6s`/73 frames; Kling and Livewallpaper remain `5s`/61 frames; all bundled workflows use regular `VAEDecode`.
 - Changed: Web, Telegram and `build_prompt` now cap video workflows at 73 frames without lengthening valid shorter workflows.
-- Evidence: a same-latent GPU2 comparison measured tiled-VAE brightness-delta p95 about 23 times higher than regular VAE; regular decode completed safely on the 128 GB worker.
+- Added: an optional visible Desktop/Startup launcher for Windows workers; GPU1 uses it instead of an active `SYSTEM` Scheduled Task while retaining the singleton watchdog.
+- Evidence: same-input/seed GPU2 comparisons measured tiled-VAE brightness-delta p95 about 23 times higher on Jazz and 12.15 times higher on Kling; fresh and seed-changed warm regular-VAE Kling jobs both completed on the 128 GB worker.
 - Risk: regular VAE requires the measured 128 GB RAM headroom; production scheduling remains disabled during rollout and validation.
 
 ### 2026-07-30 - Tile bundled VAE decode and enforce singleton GPU workers

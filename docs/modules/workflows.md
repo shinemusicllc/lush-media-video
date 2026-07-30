@@ -53,6 +53,18 @@ python -m unittest tests.test_workflow_vae_config tests.test_workflow_guard -v
 - The 128 GB cold/warm 61-frame tests also retained at least 69.708 GiB
   available RAM. This confirms the earlier 64 GB failures were primarily
   system-RAM pressure during model/decode transitions.
+- A controlled Kling 61-frame test compared the same input/seed and produced
+  121 output frames at 24 fps. Tiled brightness-delta p95 was `3.8268`; regular
+  VAE was `0.3149`, so tiled was 12.15 times higher. A following seed-changed
+  warm job without `/free` also succeeded, with regular p95 `0.3115`.
+- The Kling fresh and seed-changed warm jobs completed in 403 and 445 seconds.
+  Minimum sampled free RAM was about 75.27 and 76.81 GiB; minimum sampled free
+  VRAM was about 11.20 and 11.24 GiB. Neither successful run lost its endpoint.
+- A byte-identical cached prompt attempted before those runs entered regular
+  decode with only about 81 MiB VRAM free and native-restarted ComfyUI. The
+  app's normal `build_prompt` path assigns fresh sampler seeds, which forces
+  sampler-dependent cleanup nodes to execute; do not use an identical cached
+  prompt as the production warm-path validation.
 - Preserve ComfyUI's warm model cache between normal consecutive jobs; do not
   call `/free` after every completion.
 
@@ -69,3 +81,5 @@ python -m unittest tests.test_workflow_vae_config tests.test_workflow_guard -v
   explicitly planned.
 - GPU workers intended for regular VAE production require 128 GB system RAM or
   equivalent measured headroom.
+- Preserve per-job seed randomization so sampler-dependent cleanup nodes are
+  not skipped by ComfyUI cache.
