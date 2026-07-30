@@ -57,6 +57,63 @@ try {
     Assert-Equal 10 $loaded.HealthIntervalSeconds "default health interval"
     Assert-Equal 10485760 $loaded.LogMaxBytes "default log size"
 
+    $correctProcess = [pscustomobject]@{
+        ProcessId = 100
+        CommandLine = "python ComfyUI\main.py --cuda-device 0 --port 8188"
+    }
+    $wrongPortProcess = [pscustomobject]@{
+        ProcessId = 200
+        CommandLine = "python ComfyUI\main.py --cuda-device 0 --port 8288"
+    }
+    $duplicateProcess = [pscustomobject]@{
+        ProcessId = 300
+        CommandLine = "python ComfyUI\main.py --cuda-device 0 --port 8188"
+    }
+    Assert-Equal 8188 (Get-ComfyProcessPort -Process $correctProcess) "parse correct port"
+    Assert-Equal 8288 (Get-ComfyProcessPort -Process $wrongPortProcess) "parse wrong port"
+
+    $processPlan = Get-ComfyProcessPlan `
+        -Processes @($correctProcess, $wrongPortProcess, $duplicateProcess) `
+        -LocalPort 8188
+    Assert-Equal 100 $processPlan.KeepProcess.ProcessId "keep one expected process"
+    Assert-Equal `
+        "200,300" `
+        (($processPlan.StopProcesses.ProcessId | Sort-Object) -join ",") `
+        "stop wrong-port and duplicate processes"
+
+    $wrongOnlyPlan = Get-ComfyProcessPlan `
+        -Processes @($wrongPortProcess) `
+        -LocalPort 8188
+    Assert-Equal $null $wrongOnlyPlan.KeepProcess "wrong-port process is not managed"
+    Assert-Equal 200 $wrongOnlyPlan.StopProcesses[0].ProcessId "wrong-port process is stopped"
+
+    $wrongBatchPath = Join-Path $testRoot "wrong-port.bat"
+    [System.IO.File]::WriteAllText(
+        $wrongBatchPath,
+        ".\python_embeded\python.exe -s ComfyUI\main.py --cuda-device 0 --port 8288"
+    )
+    $batchRejected = $false
+    try {
+        Assert-ComfyBatchContract `
+            -BatchFile $wrongBatchPath `
+            -LocalPort 8188 `
+            -CudaDevice 0
+    }
+    catch {
+        $batchRejected = $true
+    }
+    Assert-True $batchRejected "batch with mismatched port is rejected"
+
+    $validBatchPath = Join-Path $testRoot "valid.bat"
+    [System.IO.File]::WriteAllText(
+        $validBatchPath,
+        ".\python_embeded\python.exe -s ComfyUI\main.py --cuda-device 0 --port 8188"
+    )
+    Assert-ComfyBatchContract `
+        -BatchFile $validBatchPath `
+        -LocalPort 8188 `
+        -CudaDevice 0
+
     $logPath = Join-Path $testRoot "worker.log"
     [System.IO.File]::WriteAllText($logPath, ("x" * 64))
     Write-RotatingLog -Path $logPath -Message "rotated" -MaxBytes 32

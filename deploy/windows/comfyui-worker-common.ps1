@@ -179,16 +179,29 @@ function Get-TunnelArguments {
 }
 
 
-function Get-ManagedComfyProcess {
+function Get-ComfyProcessPort {
+    param([Parameter(Mandatory)]$Process)
+
+    $commandLine = [string]$Process.CommandLine
+    $match = [regex]::Match(
+        $commandLine,
+        "(?:^|\s)--port(?:=|\s+)(\d+)(?:\s|$)"
+    )
+    if (-not $match.Success) {
+        return $null
+    }
+    return [int]$match.Groups[1].Value
+}
+
+
+function Get-ComfyProcessesForDirectory {
     param(
-        [Parameter(Mandatory)][string]$ComfyDirectory,
-        [Parameter(Mandatory)][int]$LocalPort
+        [Parameter(Mandatory)][string]$ComfyDirectory
     )
 
     $expectedRoot = [System.IO.Path]::GetFullPath($ComfyDirectory).
         TrimEnd("\").
         ToLowerInvariant()
-    $portPattern = "--port\s+$LocalPort(?:\s|$)"
 
     return Get-CimInstance Win32_Process `
         -Filter "Name = 'python.exe'" `
@@ -196,9 +209,93 @@ function Get-ManagedComfyProcess {
         Where-Object {
             $commandLine = [string]$_.CommandLine
             $executablePath = [string]$_.ExecutablePath
-            $commandLine -match "ComfyUI\\main\.py" -and
-            $commandLine -match $portPattern -and
+            $commandLine -match "ComfyUI[\\/]main\.py" -and
+            -not [string]::IsNullOrWhiteSpace($executablePath) -and
             $executablePath.ToLowerInvariant().StartsWith($expectedRoot)
+        }
+}
+
+
+function Get-ComfyProcessPlan {
+    param(
+        [object[]]$Processes = @(),
+        [Parameter(Mandatory)][int]$LocalPort
+    )
+
+    $allProcesses = @($Processes)
+    $matchingProcesses = @(
+        $allProcesses |
+        Where-Object {
+            (Get-ComfyProcessPort -Process $_) -eq $LocalPort
         } |
+        Sort-Object ProcessId
+    )
+    $keepProcess = $matchingProcesses | Select-Object -First 1
+    $keepPid = if ($keepProcess) {
+        [int]$keepProcess.ProcessId
+    }
+    else {
+        -1
+    }
+    $stopProcesses = @(
+        $allProcesses |
+        Where-Object {
+            [int]$_.ProcessId -ne $keepPid
+        } |
+        Sort-Object ProcessId
+    )
+
+    return [pscustomobject]@{
+        KeepProcess = $keepProcess
+        StopProcesses = $stopProcesses
+    }
+}
+
+
+function Get-ManagedComfyProcess {
+    param(
+        [Parameter(Mandatory)][string]$ComfyDirectory,
+        [Parameter(Mandatory)][int]$LocalPort
+    )
+
+    return Get-ComfyProcessesForDirectory -ComfyDirectory $ComfyDirectory |
+        Where-Object {
+            (Get-ComfyProcessPort -Process $_) -eq $LocalPort
+        } |
+        Sort-Object ProcessId |
         Select-Object -First 1
+}
+
+
+function Assert-ComfyBatchContract {
+    param(
+        [Parameter(Mandatory)][string]$BatchFile,
+        [Parameter(Mandatory)][int]$LocalPort,
+        [Parameter(Mandatory)][int]$CudaDevice
+    )
+
+    if (-not (Test-Path -LiteralPath $BatchFile -PathType Leaf)) {
+        throw "ComfyUI batch file not found: $BatchFile"
+    }
+
+    $batchContent = Get-Content -LiteralPath $BatchFile -Raw
+    $mainPattern = "ComfyUI[\\/]main\.py"
+    $portPattern = (
+        "(?:^|\s)--port(?:=|\s+){0}(?:\s|$)" -f
+        [regex]::Escape([string]$LocalPort)
+    )
+    $cudaPattern = (
+        "(?:^|\s)--cuda-device(?:=|\s+){0}(?:\s|$)" -f
+        [regex]::Escape([string]$CudaDevice)
+    )
+
+    if ($batchContent -notmatch $mainPattern) {
+        throw "Batch file does not launch ComfyUI\main.py: $BatchFile"
+    }
+    if ($batchContent -notmatch $portPattern) {
+        throw "Batch LocalPort does not match worker config: expected $LocalPort"
+    }
+    if ($batchContent -notmatch $cudaPattern) {
+        throw "Batch CudaDevice does not match worker config: expected $CudaDevice"
+    }
 }
