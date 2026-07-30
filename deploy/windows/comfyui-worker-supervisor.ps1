@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory)]
-    [string]$ConfigPath
+    [string]$ConfigPath,
+
+    [switch]$Interactive
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,6 +30,9 @@ catch {
         -Path $watchdogLog `
         -Message "Another $($config.WorkerId) supervisor is already running; exiting" `
         -MaxBytes $config.LogMaxBytes
+    if ($Interactive) {
+        Write-Host "Another $($config.WorkerId) supervisor is already running."
+    }
     exit 0
 }
 
@@ -89,6 +94,12 @@ Write-RotatingLog `
     -Path $watchdogLog `
     -Message "$($config.WorkerId) supervisor started for CUDA $($config.CudaDevice)" `
     -MaxBytes $config.LogMaxBytes
+if ($Interactive) {
+    Write-Host "LushMedia $($config.WorkerId) supervisor is active."
+    Write-Host "Keep this window open. ComfyUI will restart here after a crash."
+    Write-Host "Local endpoint: http://127.0.0.1:$($config.LocalPort)/"
+    Write-Host ""
+}
 
 while ($true) {
     try {
@@ -199,17 +210,32 @@ while ($true) {
                     -Path $watchdogLog `
                     -Message "Starting ComfyUI on CUDA $($config.CudaDevice), port $($config.LocalPort)" `
                     -MaxBytes $config.LogMaxBytes
-                Start-Process `
-                    -FilePath "$env:WINDIR\System32\cmd.exe" `
-                    -ArgumentList @(
-                        "/d",
-                        "/c",
-                        "call `"$($config.BatchFile)`" 1>>`"$comfyOutLog`" 2>>`"$comfyErrLog`""
-                    ) `
-                    -WorkingDirectory $config.ComfyDirectory `
-                    -WindowStyle Hidden `
-                    -PassThru |
-                    Out-Null
+                if ($Interactive) {
+                    Start-Process `
+                        -FilePath "$env:WINDIR\System32\cmd.exe" `
+                        -ArgumentList @(
+                            "/d",
+                            "/c",
+                            "call `"$($config.BatchFile)`""
+                        ) `
+                        -WorkingDirectory $config.ComfyDirectory `
+                        -NoNewWindow `
+                        -PassThru |
+                        Out-Null
+                }
+                else {
+                    Start-Process `
+                        -FilePath "$env:WINDIR\System32\cmd.exe" `
+                        -ArgumentList @(
+                            "/d",
+                            "/c",
+                            "call `"$($config.BatchFile)`" 1>>`"$comfyOutLog`" 2>>`"$comfyErrLog`""
+                        ) `
+                        -WorkingDirectory $config.ComfyDirectory `
+                        -WindowStyle Hidden `
+                        -PassThru |
+                        Out-Null
+                }
                 $lastComfyStart = Get-Date
                 $lastComfyLaunchAttempt = $lastComfyStart
                 $comfyFailures = 0

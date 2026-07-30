@@ -316,3 +316,16 @@ function Assert-ComfyBatchContract {
         throw "Batch CudaDevice does not match worker config: expected $CudaDevice"
     }
 }
+
+
+function New-VisibleLauncherContent {
+    param(
+        [Parameter(Mandatory)][string]$VisibleLauncherPath,
+        [Parameter(Mandatory)][string]$ConfigPath
+    )
+
+    return @"
+@echo off
+call "$VisibleLauncherPath" "$ConfigPath"
+"@
+}

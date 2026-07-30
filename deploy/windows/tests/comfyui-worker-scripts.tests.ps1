@@ -9,13 +9,21 @@ function Assert-True($Actual, $Message) {
 
 $supervisorPath = Join-Path $PSScriptRoot "..\comfyui-worker-supervisor.ps1"
 $installerPath = Join-Path $PSScriptRoot "..\install-comfyui-worker-task.ps1"
+$visibleInstallerPath = Join-Path $PSScriptRoot "..\install-comfyui-worker-visible-launcher.ps1"
+$visibleLauncherPath = Join-Path $PSScriptRoot "..\start-comfyui-worker-visible.bat"
 $examplePath = Join-Path $PSScriptRoot "..\worker.example.json"
 
-foreach ($path in @($supervisorPath, $installerPath, $examplePath)) {
+foreach ($path in @(
+    $supervisorPath,
+    $installerPath,
+    $visibleInstallerPath,
+    $visibleLauncherPath,
+    $examplePath
+)) {
     Assert-True (Test-Path -LiteralPath $path -PathType Leaf) "required worker asset $path"
 }
 
-foreach ($path in @($supervisorPath, $installerPath)) {
+foreach ($path in @($supervisorPath, $installerPath, $visibleInstallerPath)) {
     $tokens = $null
     $errors = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile(
@@ -29,6 +37,8 @@ foreach ($path in @($supervisorPath, $installerPath)) {
 $supervisor = Get-Content -LiteralPath $supervisorPath -Raw
 Assert-True ($supervisor.Contains("[System.IO.FileShare]::None")) "single-instance file lock"
 Assert-True ($supervisor.Contains("-WindowStyle Hidden")) "hidden background processes"
+Assert-True ($supervisor.Contains("[switch]`$Interactive")) "interactive supervisor switch"
+Assert-True ($supervisor.Contains("-NoNewWindow")) "interactive ComfyUI shares visible console"
 Assert-True ($supervisor.Contains("Get-TunnelArguments")) "shared tunnel contract"
 Assert-True ($supervisor.Contains("Get-ManagedComfyProcess")) "guarded process discovery"
 
@@ -37,6 +47,26 @@ Assert-True ($installer.Contains('UserId "SYSTEM"')) "SYSTEM scheduled task"
 Assert-True ($installer.Contains("-LogonType ServiceAccount")) "service-account logon"
 Assert-True ($installer.Contains("-RunLevel Highest")) "elevated scheduled task"
 Assert-True ($installer.Contains("New-ScheduledTaskTrigger -AtStartup")) "startup trigger"
+
+$visibleInstaller = Get-Content -LiteralPath $visibleInstallerPath -Raw
+Assert-True ($visibleInstaller.Contains("Disable-ScheduledTask")) "legacy task is disabled"
+Assert-True ($visibleInstaller.Contains("CreateShortcut")) "Startup shortcut is created"
+Assert-True ($visibleInstaller.Contains("Get-ComfyProcessesForDirectory")) "only configured ComfyUI processes are stopped"
+Assert-True ($visibleInstaller.Contains("queue_running")) "running queue is checked"
+Assert-True ($visibleInstaller.Contains("queue_pending")) "pending queue is checked"
+
+$visibleLauncher = Get-Content -LiteralPath $visibleLauncherPath -Raw
+Assert-True ($visibleLauncher.Contains("-Interactive")) "visible launcher selects interactive mode"
+
+$generatedLauncher = New-VisibleLauncherContent `
+    -VisibleLauncherPath "D:\repo path\start-comfyui-worker-visible.bat" `
+    -ConfigPath "D:\runtime path\gpu1.worker.json"
+Assert-True `
+    ($generatedLauncher.Contains('"D:\repo path\start-comfyui-worker-visible.bat"')) `
+    "generated launcher quotes repo path"
+Assert-True `
+    ($generatedLauncher.Contains('"D:\runtime path\gpu1.worker.json"')) `
+    "generated launcher quotes config path"
 
 $config = Read-WorkerConfig -Path $examplePath
 Assert-True ($config.WorkerId -eq "gpu1") "example worker id"

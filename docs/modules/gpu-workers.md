@@ -31,9 +31,13 @@ If the gateway changes, update the worker `RemoteBindAddress` and all matching
 ## Entry Points
 
 - Supervisor:
-  `deploy/windows/comfyui-worker-supervisor.ps1 -ConfigPath <worker.json>`
+  `deploy/windows/comfyui-worker-supervisor.ps1 -ConfigPath <worker.json> [-Interactive]`
 - Scheduled Task installer:
   `deploy/windows/install-comfyui-worker-task.ps1`
+- Visible Desktop/Startup installer:
+  `deploy/windows/install-comfyui-worker-visible-launcher.ps1`
+- Visible batch entrypoint:
+  `deploy/windows/start-comfyui-worker-visible.bat`
 - Backend scheduler: `load_balancer.py`
 - ComfyUI WebSocket/history handling: `comfyui_client.py`
 
@@ -49,7 +53,12 @@ If the gateway changes, update the worker `RemoteBindAddress` and all matching
 ## GPU1 Current State
 
 - Config: `D:\ComfyUI-Autostart\gpu1.worker.json`
-- Scheduled Task: `LushMedia-ComfyUI-gpu1`, running as `SYSTEM`
+- Scheduled Task: `LushMedia-ComfyUI-gpu1`, retained but disabled.
+- Desktop launcher:
+  `C:\Users\Admin\Desktop\START LushMedia GPU1.bat`
+- Startup shortcut:
+  `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\LushMedia-ComfyUI-gpu1.lnk`
+- Runtime owner: interactive `Admin` session after Windows login.
 - ComfyUI directory/batch:
   `D:\ComfyUI1` / `D:\ComfyUI1\run_nvidia_gpu.bat`
 - Private key: `D:\ComfyUI-Autostart\gpu1_worker_ed25519`
@@ -58,8 +67,40 @@ If the gateway changes, update the worker `RemoteBindAddress` and all matching
 - VPS key restriction:
   `restrict,port-forwarding,permitlisten="172.19.0.1:18188"`
 
-The key file is intentionally readable by `SYSTEM`, not by the interactive
-Windows user.
+The key file remains restricted and grants read access only to the identities
+that run the worker (`SYSTEM` for rollback and the explicit interactive
+account). Do not grant broad `Users`/`Everyone` access.
+
+## Visible Launcher Mode
+
+GPU1 uses visible launcher mode so a non-technical operator can inspect the
+ComfyUI output and recover the worker by double-clicking one Desktop file.
+
+Install from elevated PowerShell only while the queue is empty:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\deploy\windows\install-comfyui-worker-visible-launcher.ps1 `
+  -ConfigPath 'D:\ComfyUI-Autostart\gpu1.worker.json' `
+  -TaskName 'LushMedia-ComfyUI-gpu1'
+```
+
+The installer:
+
+- refuses migration while `queue_running` or `queue_pending` is non-empty;
+- stops and disables the legacy `SYSTEM` Scheduled Task;
+- stops only ComfyUI processes rooted in the configured `ComfyDirectory`;
+- grants private-key read access to the exact interactive Windows identity;
+- creates `START LushMedia GPU1.bat` on Desktop and one Startup shortcut.
+
+The Desktop batch runs the same singleton supervisor with `-Interactive`.
+ComfyUI shares that console through `-NoNewWindow`, so native output remains
+visible. If ComfyUI crashes, the supervisor starts it again in the same window.
+If the whole window is closed, double-click the Desktop batch to recover it.
+
+Visible mode starts only after the Windows user logs in. It does not make the
+worker available at the pre-login screen. Never enable the legacy Scheduled
+Task at the same time as the visible launcher.
 
 ## GPU2 Current State
 
@@ -112,7 +153,18 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
 
 6. Tighten the private-key ACL so the Scheduled Task `SYSTEM` account can read
    it and ordinary local users cannot.
-7. From elevated PowerShell, install and start the task:
+7. Choose exactly one runtime mode. For the same visible/manual recovery
+   behavior as GPU1, run:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass `
+     -File .\deploy\windows\install-comfyui-worker-visible-launcher.ps1 `
+     -ConfigPath 'D:\ComfyUI-Autostart\gpu2.worker.json' `
+     -TaskName 'LushMedia-ComfyUI-gpu2'
+   ```
+
+   Then double-click `START LushMedia GPU2.bat` on Desktop. If pre-login
+   startup is required instead, keep the legacy Scheduled Task mode:
 
    ```powershell
    powershell -NoProfile -ExecutionPolicy Bypass `
@@ -156,6 +208,9 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
 - The supervisor uses one file lock, refuses unmanaged processes on the worker
   port, rotates logs, restarts unhealthy ComfyUI, and reconnects SSH with
   bounded backoff.
+- In interactive mode, ComfyUI output goes to the visible console instead of
+  `gpuN-comfy-output.log`/`gpuN-comfy-error.log`; watchdog and SSH error logs
+  remain available in the runtime directory.
 - The batch `--port` and `--cuda-device` values must match worker config or the
   supervisor refuses to start.
 - The supervisor reconciles every ComfyUI process under `ComfyDirectory`,
@@ -195,6 +250,8 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
   duplicate processes are stopped by its supervisor.
 - Runtime batch port/CUDA must match the worker JSON.
 - Reverse listeners bind to the Docker gateway, not `0.0.0.0`.
+- A worker uses either visible launcher mode or `SYSTEM` Scheduled Task mode,
+  never both.
 - `origin/main` remains the canonical source; runtime configs, private keys,
   secrets, data, and logs stay out of Git.
 
@@ -209,6 +266,8 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
   health checks.
 - Set `LaunchGuardSeconds` to `30` on GPU2 and verify its batch contains
   `--cuda-device 0 --listen 127.0.0.1 --port 8188`.
+- Visible launcher autostart requires a Windows login; it cannot recover a
+  worker that remains at the login screen after reboot.
 - Run a real 61-frame bundled workflow with sufficient free system RAM before
   adding GPU2 to the scheduler.
 
@@ -218,3 +277,4 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
 - `DEPLOY-002`
 - `GPU-001`
 - `GPU-002`
+- `GPU-004`
