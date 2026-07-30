@@ -65,3 +65,23 @@ Kling/Livewallpaper và workflow người dùng có số frame hợp lệ.
 - Deploy code mới khi test đạt, sau đó xác nhận container healthy, domain HTTP
   200, commit runtime khớp và backend vẫn có 0 worker.
 
+## GPU1 visible launcher
+
+- GPU1 không tiếp tục chạy supervisor bằng Scheduled Task dưới `SYSTEM`.
+- Scheduled Task `LushMedia-ComfyUI-gpu1` được stop và disable, không xóa để còn
+  đường rollback rõ ràng.
+- Desktop có file `START LushMedia GPU1.bat`; cùng launcher được gọi từ Startup
+  của tài khoản `Admin` sau khi đăng nhập Windows.
+- Launcher gọi supervisor với chế độ `-Interactive`. ComfyUI batch chạy chung
+  console bằng `-NoNewWindow`, nên log ComfyUI hiện ngay trong cửa sổ launcher.
+- File lock và process reconciliation hiện có tiếp tục bảo đảm một supervisor,
+  một ComfyUI process và một listener `8188`; double-click nhiều lần không tạo
+  worker trùng.
+- Reverse SSH tunnel vẫn là process ẩn do không cần người vận hành tương tác.
+- Private key chỉ được cấp quyền đọc cho đúng tài khoản tương tác đang chạy
+  launcher; không mở ACL cho nhóm người dùng rộng.
+- Cơ chế visible launcher chỉ tự chạy sau khi tài khoản Windows đăng nhập. Nếu
+  máy reboot nhưng chưa có ai đăng nhập thì GPU1 chưa online; đây là trade-off
+  được chấp nhận để đổi lấy cửa sổ dễ quan sát và phục hồi thủ công.
+- Máy 2 chưa thay runtime trong đợt này; repo và tài liệu cung cấp cùng installer
+  để Codex máy 2 áp dụng sau.
