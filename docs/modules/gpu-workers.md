@@ -61,6 +61,22 @@ If the gateway changes, update the worker `RemoteBindAddress` and all matching
 The key file is intentionally readable by `SYSTEM`, not by the interactive
 Windows user.
 
+## GPU2 Current State
+
+- Config: `D:\ComfyUI-Autostart\gpu2.worker.json`
+- Scheduled Task: `LushMedia-ComfyUI-gpu2`, chạy dưới `SYSTEM`
+- ComfyUI directory: `D:\ComfyUI2`
+- Local bind: `127.0.0.1:8188`; không có listener `8288`
+- Reverse bind: `172.19.0.1:18288`
+- Máy đã nâng lên 128 GB RAM.
+- Ngày 2026-07-30, cold và warm job 61 frame đều `success`, dùng cùng một
+  ComfyUI PID. RAM available thấp nhất lần lượt là 69.708 GiB và 77.548 GiB;
+  Codex private memory cao nhất chỉ 1.262 GiB.
+- Cold job có `cached_nodes=0`; warm job đổi seed, tạo MP4 với SHA-256 khác.
+  Cả hai dùng tiled VAE `512/64/16/4`, không crash hoặc restart watchdog.
+- Stale VPS SSH child giữ port `18288` đã được kết thúc có chọn lọc. Supervisor
+  tự bind tunnel mới; local, VPS host và app container đều trả HTTP 200.
+
 ## GPU2 Handoff
 
 Perform these steps from machine 2 after cloning/pulling `origin/main`.
@@ -165,6 +181,9 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
 - On 2026-07-30, GPU1 kill/restart validation changed PID `21900 -> 3228`.
   Health returned 200, exactly one supervisor and one ComfyUI process remained,
   only port 8188 listened, and the watchdog recorded exactly one restart.
+- On 2026-07-30, GPU2 stale reverse listener recovery terminated only the VPS
+  SSH child that owned `18288`; GPU1 `18188` stayed healthy and GPU2's
+  supervisor recreated a working tunnel without restarting ComfyUI.
 
 ## Invariants
 

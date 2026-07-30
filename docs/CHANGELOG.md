@@ -191,3 +191,9 @@
 - Đổi tên fallback và hai preset Jazz từ `6s` thành `5s`; API chỉ liệt kê tên mới nhưng vẫn resolve hai alias cũ.
 - Khóa mọi node `WanFirstLastFrameToVideo` ở `61` frame cho web, Telegram, archive và prompt cuối gửi sang ComfyUI.
 - Thêm regression test cho guard, preset alias, workflow đóng gói và các đường nhận workflow.
+
+## 2026-07-30 - Xác nhận GPU2 sau nâng cấp 128 GB RAM
+
+- Cold và warm job 61 frame đều pass an toàn; RAM available thấp nhất lần lượt là 69.708 GiB và 77.548 GiB.
+- Xác nhận ComfyUI dùng khoảng 75–77 GiB private memory trong khi Codex chỉ đạt 1.262 GiB.
+- Dọn đúng stale VPS SSH child trên `18288`; supervisor GPU2 tự tạo tunnel mới và cả VPS host/app container đều health HTTP 200.

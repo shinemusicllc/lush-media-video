@@ -58,6 +58,10 @@ python -m unittest tests.test_workflow_vae_config -v
   12.22 GB minimum available RAM; the warm job took 290.7 seconds with
   15.71 GB minimum available RAM. Both produced MP4 output, PID `3228` stayed
   unchanged, and the queue returned to empty.
+- Sau khi GPU2 được nâng lên 128 GB RAM, cold và warm job 61 frame đều pass
+  không `/free`. RAM available thấp nhất là 69.708 GiB và 77.548 GiB; ComfyUI
+  private memory đạt khoảng 75–77 GiB, xác nhận nút thắt trước đây là dung
+  lượng RAM của ComfyUI chứ không phải Codex.
 
 ## Invariants
 
