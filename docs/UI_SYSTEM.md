@@ -20,4 +20,5 @@
 - Buttons use existing `.btn`, `.btn-ghost`, `.btn-sm`, and `.btn-accent` styles.
 - Modals should use a simple backdrop, centered panel, and direct controls.
 - Vietnamese UI text must remain UTF-8 and avoid all-caps transformations for long strings.
-
+- Display worker names as `Máy 1` and `Máy 2`; keep `gpu1` and `gpu2` as
+  backend/runtime identifiers only.

@@ -11,6 +11,7 @@ $supervisorPath = Join-Path $PSScriptRoot "..\comfyui-worker-supervisor.ps1"
 $installerPath = Join-Path $PSScriptRoot "..\install-comfyui-worker-task.ps1"
 $visibleInstallerPath = Join-Path $PSScriptRoot "..\install-comfyui-worker-visible-launcher.ps1"
 $visibleLauncherPath = Join-Path $PSScriptRoot "..\start-comfyui-worker-visible.bat"
+$visibleGuardPath = Join-Path $PSScriptRoot "..\comfyui-worker-visible-guard.ps1"
 $examplePath = Join-Path $PSScriptRoot "..\worker.example.json"
 
 foreach ($path in @(
@@ -18,12 +19,18 @@ foreach ($path in @(
     $installerPath,
     $visibleInstallerPath,
     $visibleLauncherPath,
+    $visibleGuardPath,
     $examplePath
 )) {
     Assert-True (Test-Path -LiteralPath $path -PathType Leaf) "required worker asset $path"
 }
 
-foreach ($path in @($supervisorPath, $installerPath, $visibleInstallerPath)) {
+foreach ($path in @(
+    $supervisorPath,
+    $installerPath,
+    $visibleInstallerPath,
+    $visibleGuardPath
+)) {
     $tokens = $null
     $errors = $null
     [void][System.Management.Automation.Language.Parser]::ParseFile(
@@ -57,19 +64,32 @@ Assert-True ($visibleInstaller.Contains("queue_pending")) "pending queue is chec
 Assert-True ($visibleInstaller.Contains("takeown.exe")) "SYSTEM-only private key ownership is recovered"
 Assert-True ($visibleInstaller.Contains("/inheritance:r")) "private-key inherited ACL is removed"
 Assert-True ($visibleInstaller.Contains("SYSTEM:(F)")) "SYSTEM retains private-key access"
+Assert-True ($visibleInstaller.Contains("-LogonType Interactive")) "guard uses interactive user token"
+Assert-True ($visibleInstaller.Contains("-RestartCount 999")) "guard task restarts after failure"
+Assert-True ($visibleInstaller.Contains("Start-ScheduledTask")) "guard task starts after install"
+
+$visibleGuard = Get-Content -LiteralPath $visibleGuardPath -Raw
+Assert-True ($visibleGuard.Contains("[System.IO.FileShare]::None")) "guard is single-instance"
+Assert-True ($visibleGuard.Contains("Get-InteractiveWorkerSupervisor")) "guard detects visible supervisor"
+Assert-True `
+    ($visibleGuard.Contains('-notmatch "(?i)(?:^|\s)-(?:Command|EncodedCommand)')) `
+    "guard ignores diagnostic PowerShell commands"
+Assert-True ($visibleGuard.Contains("Stop-ScopedOrphanTunnel")) "guard scopes orphan tunnel cleanup"
+Assert-True ($visibleGuard.Contains("Stop-IdleOrphanComfy")) "guard scopes idle ComfyUI cleanup"
+Assert-True ($visibleGuard.Contains("Starting a new visible worker window")) "guard relaunches visible window"
+Assert-True ($visibleGuard.Contains("-WindowStyle Normal")) "guard opens a normal visible window"
+Assert-True ($visibleGuard.Contains('"call"')) "guard supports quoted batch paths with spaces"
 
 $visibleLauncher = Get-Content -LiteralPath $visibleLauncherPath -Raw
 Assert-True ($visibleLauncher.Contains("-Interactive")) "visible launcher selects interactive mode"
 
 $generatedLauncher = New-VisibleLauncherContent `
-    -VisibleLauncherPath "D:\repo path\start-comfyui-worker-visible.bat" `
-    -ConfigPath "D:\runtime path\gpu1.worker.json"
+    -GuardTaskName "LushMedia-ComfyUI-gpu1-VisibleGuard"
 Assert-True `
-    ($generatedLauncher.Contains('"D:\repo path\start-comfyui-worker-visible.bat"')) `
-    "generated launcher quotes repo path"
-Assert-True `
-    ($generatedLauncher.Contains('"D:\runtime path\gpu1.worker.json"')) `
-    "generated launcher quotes config path"
+    ($generatedLauncher.Contains(
+        'schtasks.exe /Run /TN "LushMedia-ComfyUI-gpu1-VisibleGuard"'
+    )) `
+    "generated launcher starts guard task"
 
 $config = Read-WorkerConfig -Path $examplePath
 Assert-True ($config.WorkerId -eq "gpu1") "example worker id"

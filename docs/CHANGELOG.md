@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 2026-07-30 - Auto-reopen killed visible worker windows
+- Added: a single-instance per-user visible guard task that automatically opens a new interactive worker window when the window or supervisor exits.
+- Changed: Desktop/Startup launchers now start the guard task; the legacy `SYSTEM` worker task remains disabled, and scoped orphan ComfyUI/tunnel cleanup prevents duplicate ports during recovery.
+- Validated: GPU1 guard recovery kept the same guard PID, replaced shell/supervisor/ComfyUI/tunnel exactly once, restored HTTP 200 on one `127.0.0.1:8188` listener, and started ComfyUI with `--disable-auto-launch`.
+- Changed: user-facing worker labels now display `Máy 1` and `Máy 2` consistently in server indicators, job badges and the login footer while API/runtime IDs remain `gpu1` and `gpu2`.
+
 ### 2026-07-30 - Restore regular VAE and duration-specific workflows
 - Changed: Jazz fallback/presets return to `6s`/73 frames; Kling and Livewallpaper remain `5s`/61 frames; all bundled workflows use regular `VAEDecode`.
 - Changed: Web, Telegram and `build_prompt` now cap video workflows at 73 frames without lengthening valid shorter workflows.

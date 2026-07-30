@@ -1038,7 +1038,7 @@ function getJobHTML(job, index = 0) {
             <p class="job-title" title="${title}">${title}</p>
             <div class="job-info-top">
                 <span class="job-id">#${shortId}</span>
-                <span class="job-server">${escapeHTML(job.server_name || 'N/A')}</span>
+                <span class="job-server">${escapeHTML(getServerDisplayName(job.server_name))}</span>
                 ${workflowBadge}
                 ${showUser}
                 <span class="status-badge ${st.cls}">${statusLabel}</span>
@@ -1198,8 +1198,8 @@ function renderServers(servers) {
     const normalizeName = (name = '') => String(name).trim().toLowerCase();
 
     const defaults = [
-        { name: 'GPU #1', status: 'offline' },
-        { name: 'GPU #2', status: 'offline' },
+        { name: 'Máy 1', status: 'offline' },
+        { name: 'Máy 2', status: 'offline' },
     ];
 
     const byName = new Map();
@@ -1212,9 +1212,7 @@ function renderServers(servers) {
         const normalized = normalizeName(s?.name);
         if (!normalized) return;
 
-        let canonicalName = s.name;
-        if (normalized.includes('gpu #1') || normalized.includes('gpu1')) canonicalName = 'GPU #1';
-        if (normalized.includes('gpu #2') || normalized.includes('gpu2')) canonicalName = 'GPU #2';
+        const canonicalName = getServerDisplayName(s.name);
 
         byName.set(normalizeName(canonicalName), {
             name: canonicalName,
@@ -1222,7 +1220,7 @@ function renderServers(servers) {
         });
     });
 
-    const primaryOrder = ['gpu #1', 'gpu #2'];
+    const primaryOrder = ['máy 1', 'máy 2'];
     const ordered = [
         ...primaryOrder
             .map((key) => byName.get(key))
@@ -1321,6 +1319,16 @@ function escapeHTML(str) {
     return div.innerHTML;
 }
 
+function getServerDisplayName(name = '') {
+    const rawName = String(name || '').trim();
+    if (!rawName) return 'N/A';
+
+    const normalized = rawName.toLowerCase();
+    if (normalized.includes('gpu #1') || normalized.includes('gpu1')) return 'Máy 1';
+    if (normalized.includes('gpu #2') || normalized.includes('gpu2')) return 'Máy 2';
+    return rawName;
+}
+
 function truncate(str, len) {
     if (!str) return '';
     return str.length > len ? `${str.substring(0, len)}...` : str;
@@ -1383,7 +1391,6 @@ if (state.token) {
 } else {
     showLogin();
 }
-
 
 
 
