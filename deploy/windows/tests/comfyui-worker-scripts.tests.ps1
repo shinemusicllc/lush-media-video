@@ -54,6 +54,9 @@ Assert-True ($visibleInstaller.Contains("CreateShortcut")) "Startup shortcut is 
 Assert-True ($visibleInstaller.Contains("Get-ComfyProcessesForDirectory")) "only configured ComfyUI processes are stopped"
 Assert-True ($visibleInstaller.Contains("queue_running")) "running queue is checked"
 Assert-True ($visibleInstaller.Contains("queue_pending")) "pending queue is checked"
+Assert-True ($visibleInstaller.Contains("takeown.exe")) "SYSTEM-only private key ownership is recovered"
+Assert-True ($visibleInstaller.Contains("/inheritance:r")) "private-key inherited ACL is removed"
+Assert-True ($visibleInstaller.Contains("SYSTEM:(F)")) "SYSTEM retains private-key access"
 
 $visibleLauncher = Get-Content -LiteralPath $visibleLauncherPath -Raw
 Assert-True ($visibleLauncher.Contains("-Interactive")) "visible launcher selects interactive mode"

@@ -80,8 +80,19 @@ foreach ($process in @(
     }
 }
 
+$takeownPath = "$env:SystemRoot\System32\takeown.exe"
 $icaclsPath = "$env:SystemRoot\System32\icacls.exe"
-& $icaclsPath $config.PrivateKey /grant:r "$($identity.Name):(R)" | Out-Null
+& $takeownPath /F $config.PrivateKey | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to take ownership of private key: $($config.PrivateKey)"
+}
+& $icaclsPath `
+    $config.PrivateKey `
+    "/inheritance:r" `
+    "/grant:r" `
+    "SYSTEM:(F)" `
+    "$($identity.Name):(R)" |
+    Out-Null
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to grant private-key read access to $($identity.Name)"
 }
