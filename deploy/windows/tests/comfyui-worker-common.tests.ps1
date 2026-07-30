@@ -55,7 +55,31 @@ try {
     $loaded = Read-WorkerConfig -Path $configPath
     Assert-Equal "gpu1" $loaded.WorkerId "config worker id"
     Assert-Equal 10 $loaded.HealthIntervalSeconds "default health interval"
+    Assert-Equal 30 $loaded.LaunchGuardSeconds "default launch guard"
     Assert-Equal 10485760 $loaded.LogMaxBytes "default log size"
+
+    $launchTime = [datetime]"2026-07-30T09:00:00"
+    Assert-Equal `
+        $false `
+        (Test-ComfyLaunchAllowed `
+            -LastLaunchAttempt $launchTime `
+            -Now $launchTime.AddSeconds(29) `
+            -LaunchGuardSeconds 30) `
+        "launch guard blocks an early duplicate"
+    Assert-Equal `
+        $true `
+        (Test-ComfyLaunchAllowed `
+            -LastLaunchAttempt $launchTime `
+            -Now $launchTime.AddSeconds(30) `
+            -LaunchGuardSeconds 30) `
+        "launch guard allows retry at boundary"
+    Assert-Equal `
+        $true `
+        (Test-ComfyLaunchAllowed `
+            -LastLaunchAttempt ([datetime]::MinValue) `
+            -Now $launchTime `
+            -LaunchGuardSeconds 30) `
+        "first launch is allowed"
 
     $correctProcess = [pscustomobject]@{
         ProcessId = 100

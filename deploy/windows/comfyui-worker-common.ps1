@@ -58,6 +58,7 @@ function Read-WorkerConfig {
         HealthIntervalSeconds = 10
         HealthFailureThreshold = 3
         StartupGraceSeconds = 300
+        LaunchGuardSeconds = 30
         SshBackoffBaseSeconds = 5
         SshBackoffMaxSeconds = 60
         LogMaxBytes = 10485760
@@ -72,6 +73,22 @@ function Read-WorkerConfig {
 
     Assert-WorkerConfig -Config $config
     return $config
+}
+
+
+function Test-ComfyLaunchAllowed {
+    param(
+        [Parameter(Mandatory)][datetime]$LastLaunchAttempt,
+        [Parameter(Mandatory)][datetime]$Now,
+        [Parameter(Mandatory)][int]$LaunchGuardSeconds
+    )
+
+    if ($LastLaunchAttempt -eq [datetime]::MinValue) {
+        return $true
+    }
+    return (
+        ($Now - $LastLaunchAttempt).TotalSeconds -ge $LaunchGuardSeconds
+    )
 }
 
 

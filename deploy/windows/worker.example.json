@@ -12,6 +12,7 @@
   "HealthIntervalSeconds": 10,
   "HealthFailureThreshold": 3,
   "StartupGraceSeconds": 300,
+  "LaunchGuardSeconds": 30,
   "SshBackoffBaseSeconds": 5,
   "SshBackoffMaxSeconds": 60,
   "LogMaxBytes": 10485760

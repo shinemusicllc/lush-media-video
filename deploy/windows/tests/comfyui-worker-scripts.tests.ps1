@@ -43,4 +43,13 @@ Assert-True ($config.WorkerId -eq "gpu1") "example worker id"
 Assert-True ($config.LocalPort -eq 8188) "example local port"
 Assert-True ($config.RemotePort -eq 18188) "example remote port"
 
+$explicitExampleConfig = Get-Content -LiteralPath $examplePath -Raw |
+    ConvertFrom-Json
+Assert-True `
+    ($null -ne $explicitExampleConfig.PSObject.Properties["LaunchGuardSeconds"]) `
+    "example explicitly documents launch guard"
+Assert-True `
+    ($explicitExampleConfig.LaunchGuardSeconds -eq 30) `
+    "example launch guard value"
+
 Write-Host "PASS comfyui-worker-scripts.tests.ps1"

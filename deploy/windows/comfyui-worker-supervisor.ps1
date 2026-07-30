@@ -40,6 +40,10 @@ foreach ($requiredPath in @(
         throw "Required worker path not found: $requiredPath"
     }
 }
+Assert-ComfyBatchContract `
+    -BatchFile $config.BatchFile `
+    -LocalPort $config.LocalPort `
+    -CudaDevice $config.CudaDevice
 
 $sshExecutable = "$env:SystemRoot\System32\OpenSSH\ssh.exe"
 $nvidiaSmi = "$env:SystemRoot\System32\nvidia-smi.exe"
@@ -77,6 +81,7 @@ if ($existingTunnel) {
 $comfyFailures = 0
 $tunnelFailures = 0
 $lastComfyStart = [datetime]::MinValue
+$lastComfyLaunchAttempt = [datetime]::MinValue
 $lastTunnelStart = [datetime]::MinValue
 $nextTunnelStart = [datetime]::MinValue
 
@@ -87,6 +92,35 @@ Write-RotatingLog `
 
 while ($true) {
     try {
+        $allComfyProcesses = @(
+            Get-ComfyProcessesForDirectory `
+                -ComfyDirectory $config.ComfyDirectory
+        )
+        $processPlan = Get-ComfyProcessPlan `
+            -Processes $allComfyProcesses `
+            -LocalPort $config.LocalPort
+        $stoppedExtraProcess = $false
+        foreach ($extraProcess in @($processPlan.StopProcesses)) {
+            $verifiedExtra = Get-ComfyProcessesForDirectory `
+                -ComfyDirectory $config.ComfyDirectory |
+                Where-Object {
+                    $_.ProcessId -eq $extraProcess.ProcessId
+                } |
+                Select-Object -First 1
+            if ($verifiedExtra) {
+                $extraPort = Get-ComfyProcessPort -Process $verifiedExtra
+                Write-RotatingLog `
+                    -Path $watchdogLog `
+                    -Message "Stopping extra ComfyUI pid=$($verifiedExtra.ProcessId), port=$extraPort" `
+                    -MaxBytes $config.LogMaxBytes
+                Stop-Process -Id $verifiedExtra.ProcessId -Force
+                $stoppedExtraProcess = $true
+            }
+        }
+        if ($stoppedExtraProcess) {
+            Start-Sleep -Seconds 1
+        }
+
         $managedComfy = Get-ManagedComfyProcess `
             -ComfyDirectory $config.ComfyDirectory `
             -LocalPort $config.LocalPort
@@ -142,7 +176,12 @@ while ($true) {
                     -Message "Refusing to start ComfyUI because port $($config.LocalPort) is owned by an unmanaged process" `
                     -MaxBytes $config.LogMaxBytes
             }
-            else {
+            elseif (
+                Test-ComfyLaunchAllowed `
+                    -LastLaunchAttempt $lastComfyLaunchAttempt `
+                    -Now (Get-Date) `
+                    -LaunchGuardSeconds $config.LaunchGuardSeconds
+            ) {
                 foreach ($path in @($comfyOutLog, $comfyErrLog)) {
                     if (
                         (Test-Path -LiteralPath $path -PathType Leaf) -and
@@ -172,6 +211,7 @@ while ($true) {
                     -PassThru |
                     Out-Null
                 $lastComfyStart = Get-Date
+                $lastComfyLaunchAttempt = $lastComfyStart
                 $comfyFailures = 0
             }
         }
