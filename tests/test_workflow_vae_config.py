@@ -4,11 +4,11 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_WORKFLOW = REPO_ROOT / "workflows" / "Jazz & lofi 6s Khong Loop.json"
+DEFAULT_WORKFLOW = REPO_ROOT / "workflows" / "Jazz & lofi 5s Khong Loop.json"
 PRESET_DIRECTORY = REPO_ROOT / "workflows" / "presets"
 EXPECTED_PRESETS = {
-    "Jazz & lofi 6s Co Loop.json",
-    "Jazz & lofi 6s Khong Loop.json",
+    "Jazz & lofi 5s Co Loop.json",
+    "Jazz & lofi 5s Khong Loop.json",
     "Kling Animation 5s Co Loop.json",
     "Kling Animation 5s Khong Loop.json",
     "Livewallpaper 5s Khong Loop.json",
@@ -25,6 +25,7 @@ class WorkflowVaeConfigTests(unittest.TestCase):
     def test_default_and_all_presets_use_temporally_tiled_vae(self):
         preset_paths = sorted(PRESET_DIRECTORY.glob("*.json"))
         self.assertEqual(EXPECTED_PRESETS, {path.name for path in preset_paths})
+        self.assertFalse(any("6s" in path.name for path in preset_paths))
 
         for path in [DEFAULT_WORKFLOW, *preset_paths]:
             with self.subTest(workflow=path.name):
