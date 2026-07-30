@@ -11,65 +11,61 @@
 ## Canonical Files
 
 - Fallback:
-  `workflows/Jazz & lofi 5s Khong Loop.json`
+  `workflows/Jazz & lofi 6s Khong Loop.json`
 - Presets:
-  `workflows/presets/*.json`
+  - `Jazz & lofi 6s Co Loop.json`
+  - `Jazz & lofi 6s Khong Loop.json`
+  - `Kling Animation 5s Co Loop.json`
+  - `Kling Animation 5s Khong Loop.json`
+  - `Livewallpaper 5s Khong Loop.json`
 
 The two root `FULLHD_*` files are legacy assets and are not part of the
 fallback/preset contract.
 
 ## VAE And Frame Contract
 
-Every fallback/preset workflow uses one `VAEDecodeTiled` node with:
-
-```json
-{
-  "tile_size": 512,
-  "overlap": 64,
-  "temporal_size": 16,
-  "temporal_overlap": 4
-}
-```
-
-Mọi workflow đóng gói dùng
-`WanFirstLastFrameToVideo.length=61`. Web, Telegram và `build_prompt` cùng áp
-dụng guard này cho workflow người dùng tải lên trước khi archive và submit.
-Danh sách preset chỉ hiển thị tên `5s`; hai tên Jazz `6s` cũ là alias ẩn trỏ
-tới file `5s`.
+- Every fallback/preset workflow uses exactly one regular `VAEDecode` node.
+- Jazz fallback/presets use `WanFirstLastFrameToVideo.length=73` and are named
+  `6s`.
+- Kling and Livewallpaper presets use `length=61` and remain named `5s`.
+- Web, Telegram and `build_prompt` preserve valid positive integer lengths at
+  or below 73. Values above 73 are capped at 73; missing or invalid values
+  default to 73.
+- The two temporary Jazz `5s` names remain hidden aliases to the canonical
+  `6s` files.
 
 Regression test:
 
 ```powershell
-python -m unittest tests.test_workflow_vae_config -v
+python -m unittest tests.test_workflow_vae_config tests.test_workflow_guard -v
 ```
 
 ## Runtime Evidence
 
-- On 2026-07-30, the previous 73-frame fallback completed on GPU1/8188 after
-  replacing regular VAE decode with temporally tiled decode.
-- During tiled decode, sampled VRAM was about 5.3 GB instead of exhausting the
-  32 GB GPU.
-- A later 61-frame test coincided with exhaustion of the machine's 64 GB system
-  RAM and native-crashed in `ucrtbase.dll` (`0xc0000409`) before producing
-  history/output. The supervisor recovered correctly, but this attempt is not
-  a successful render validation.
-- On 2026-07-30, two fresh-seed 61-frame renders then completed consecutively
-  on GPU1 without calling `/free`. The cold job took 351.3 seconds with
-  12.22 GB minimum available RAM; the warm job took 290.7 seconds with
-  15.71 GB minimum available RAM. Both produced MP4 output, PID `3228` stayed
-  unchanged, and the queue returned to empty.
-- Sau khi GPU2 được nâng lên 128 GB RAM, cold và warm job 61 frame đều pass
-  không `/free`. RAM available thấp nhất là 69.708 GiB và 77.548 GiB; ComfyUI
-  private memory đạt khoảng 75–77 GiB, xác nhận nút thắt trước đây là dung
-  lượng RAM của ComfyUI chứ không phải Codex.
+- A controlled GPU2 comparison used the same 73-frame latent, input and seed.
+  `VAEDecodeTiled` produced brightness-delta p95 `5.4399`, while regular
+  `VAEDecode` produced `0.2368`; the tiled result was about 23 times more
+  variable and visibly flickered.
+- Regular VAE completed successfully on GPU2 after the machine was upgraded to
+  128 GB RAM. During the isolated decode validation, minimum available RAM was
+  75.886 GiB, ComfyUI private memory peaked at 86.039 GiB, PID stayed stable and
+  no OOM/native crash occurred.
+- The 128 GB cold/warm 61-frame tests also retained at least 69.708 GiB
+  available RAM. This confirms the earlier 64 GB failures were primarily
+  system-RAM pressure during model/decode transitions.
+- Preserve ComfyUI's warm model cache between normal consecutive jobs; do not
+  call `/free` after every completion.
 
 ## Invariants
 
-- Do not replace tiled decode with regular `VAEDecode` for Wan video presets.
-- Do not bypass the exact 61-frame lock for any accepted workflow.
+- Do not use `VAEDecodeTiled` in bundled video workflows while its temporal
+  brightness discontinuity remains reproducible.
+- Do not force a 5-second 61-frame workflow to 73 frames.
+- Never accept more than 73 source frames through Web, Telegram or
+  `build_prompt`.
 - Keep fallback and same-named preset as separate source files; both must be
   updated and tested.
 - Preserve workflow API node IDs and existing links unless a migration is
   explicitly planned.
-- Preserve ComfyUI's warm model cache between normal consecutive jobs; do not
-  call `/free` after every completion.
+- GPU workers intended for regular VAE production require 128 GB system RAM or
+  equivalent measured headroom.
