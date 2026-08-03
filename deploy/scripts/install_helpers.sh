@@ -11,7 +11,6 @@ chown -R deploy:deploy /opt/lush-media-video/backups
 ln -sfn "${SCRIPT_DIR}/lushvideo.sh" /usr/local/bin/lushvideo
 install -m 644 "${DEPLOY_DIR}/systemd/lush-media-backup.service" /etc/systemd/system/lush-media-backup.service
 install -m 644 "${DEPLOY_DIR}/systemd/lush-media-backup.timer" /etc/systemd/system/lush-media-backup.timer
-install -m 755 "${DEPLOY_DIR}/scripts/watch_reverse_tunnels.sh" /opt/lush-media-video/app/deploy/scripts/watch_reverse_tunnels.sh
 install -m 644 "${DEPLOY_DIR}/systemd/lush-media-reverse-tunnel-watchdog.service" /etc/systemd/system/lush-media-reverse-tunnel-watchdog.service
 install -m 644 "${DEPLOY_DIR}/systemd/lush-media-reverse-tunnel-watchdog.timer" /etc/systemd/system/lush-media-reverse-tunnel-watchdog.timer
 

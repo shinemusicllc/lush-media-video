@@ -133,6 +133,11 @@ class ReverseTunnelWatchdogTests(unittest.TestCase):
         timer = timer_path.read_text(encoding="utf-8")
 
         self.assertIn("lush-media-reverse-tunnel-watchdog.timer", installer)
+        self.assertNotIn(
+            'install -m 755 "${DEPLOY_DIR}/scripts/watch_reverse_tunnels.sh" '
+            "/opt/lush-media-video/app/deploy/scripts/watch_reverse_tunnels.sh",
+            installer,
+        )
         self.assertIn("OnUnitActiveSec=1min", timer)
         self.assertIn("Persistent=true", timer)
 
