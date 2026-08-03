@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 2026-08-03 - Self-heal stale reverse SSH listeners
+- Added: root-owned VPS timer `lush-media-reverse-tunnel-watchdog.timer`, which probes GPU reverse ports every minute and clears only a verified stale `sshd: deploy` listener after two consecutive failures plus an immediate recheck.
+- Kept: Windows workers remain responsible for local ComfyUI and `ssh.exe` supervision; they reconnect after the VPS releases a stale port without restarting ComfyUI or the other worker.
+- Validated: automated tests cover healthy reset, first-failure no-op, verified stale-session termination, and refusal of unsafe process candidates.
+
 ### 2026-07-30 - Auto-reopen killed visible worker windows
 - Added: a single-instance per-user visible guard task that automatically opens a new interactive worker window when the window or supervisor exits.
 - Changed: Desktop/Startup launchers now start the guard task; the legacy `SYSTEM` worker task remains disabled, and scoped orphan ComfyUI/tunnel cleanup prevents duplicate ports during recovery.

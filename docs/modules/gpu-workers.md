@@ -220,6 +220,13 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
 - The supervisor uses one file lock, refuses unmanaged processes on the worker
   port, rotates logs, restarts unhealthy ComfyUI, and reconnects SSH with
   bounded backoff.
+- Workers perform the local half of tunnel recovery: they check their local
+  ComfyUI endpoint and `ssh.exe`; a missing/exited tunnel is retried with
+  `ServerAliveInterval=15` and `ServerAliveCountMax=4`. The VPS performs the
+  remote half with `lush-media-reverse-tunnel-watchdog.timer`: after two failed
+  reverse health probes it terminates only the verified stale `sshd: deploy`
+  listener, causing the worker supervisor to reconnect without restarting
+  ComfyUI.
 - In interactive mode, ComfyUI output goes to the visible console instead of
   `gpuN-comfy-output.log`/`gpuN-comfy-error.log`; watchdog and SSH error logs
   remain available in the runtime directory.

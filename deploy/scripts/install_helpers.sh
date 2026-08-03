@@ -11,6 +11,9 @@ chown -R deploy:deploy /opt/lush-media-video/backups
 ln -sfn "${SCRIPT_DIR}/lushvideo.sh" /usr/local/bin/lushvideo
 install -m 644 "${DEPLOY_DIR}/systemd/lush-media-backup.service" /etc/systemd/system/lush-media-backup.service
 install -m 644 "${DEPLOY_DIR}/systemd/lush-media-backup.timer" /etc/systemd/system/lush-media-backup.timer
+install -m 755 "${DEPLOY_DIR}/scripts/watch_reverse_tunnels.sh" /opt/lush-media-video/app/deploy/scripts/watch_reverse_tunnels.sh
+install -m 644 "${DEPLOY_DIR}/systemd/lush-media-reverse-tunnel-watchdog.service" /etc/systemd/system/lush-media-reverse-tunnel-watchdog.service
+install -m 644 "${DEPLOY_DIR}/systemd/lush-media-reverse-tunnel-watchdog.timer" /etc/systemd/system/lush-media-reverse-tunnel-watchdog.timer
 
 ln -sfn "${APP_DIR}" /home/deploy/lush-media-video
 cat > /home/deploy/.bash_aliases_lush <<'EOF'
@@ -25,6 +28,9 @@ chown deploy:deploy /home/deploy/.bash_aliases_lush
 systemctl daemon-reload
 systemctl enable --now lush-media-backup.timer
 systemctl restart lush-media-backup.timer
+systemctl enable --now lush-media-reverse-tunnel-watchdog.timer
+systemctl restart lush-media-reverse-tunnel-watchdog.timer
 
 echo "Installed helper command: /usr/local/bin/lushvideo"
 echo "Installed timer: lush-media-backup.timer"
+echo "Installed timer: lush-media-reverse-tunnel-watchdog.timer"
