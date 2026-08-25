@@ -13,6 +13,32 @@ def make_server(server_id: str, online: bool = True) -> ServerQueue:
 
 
 class SelectServerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_busy_worker_stays_online_during_transient_health_timeout(self):
+        balancer = LoadBalancer()
+        gpu1 = make_server("gpu1")
+        gpu1.current_job = "uploading-job"
+
+        with patch(
+            "load_balancer.comfyui_client.check_server",
+            new=AsyncMock(return_value=False),
+        ):
+            await balancer._refresh_server_status(gpu1)
+
+        self.assertTrue(gpu1.is_online)
+        self.assertEqual("busy", gpu1.status)
+
+    async def test_idle_worker_goes_offline_after_failed_health_probe(self):
+        balancer = LoadBalancer()
+        gpu1 = make_server("gpu1")
+
+        with patch(
+            "load_balancer.comfyui_client.check_server",
+            new=AsyncMock(return_value=False),
+        ):
+            await balancer._refresh_server_status(gpu1)
+
+        self.assertFalse(gpu1.is_online)
+
     async def test_round_robin_breaks_equal_load_ties(self):
         balancer = LoadBalancer()
         gpu1 = make_server("gpu1")

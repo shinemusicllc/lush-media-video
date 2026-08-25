@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 2026-08-25 - Harden slow reverse-tunnel uploads
+- Fixed: raised ComfyUI upload transfer timeout from 60 to 600 seconds, added one transport retry that reopens the input from byte zero, and kept an active worker `busy` during a transient health-probe timeout.
+- Changed: Windows tunnels now use `IPQoS=none`, bounded connection setup, and faster client keepalives; VPS `sshd` adds complementary server-side keepalives for stale reverse sessions.
+- Verified: 28 Python tests and both Windows worker suites passed; local GPU2 and both VPS reverse endpoints returned HTTP 200 after the scoped restart.
+
 ### 2026-08-03 - Self-heal stale reverse SSH listeners
 - Added: root-owned VPS timer `lush-media-reverse-tunnel-watchdog.timer`, which probes GPU reverse ports every minute and clears only a verified stale `sshd: deploy` listener after two consecutive failures plus an immediate recheck.
 - Kept: Windows workers remain responsible for local ComfyUI and `ssh.exe` supervision; they reconnect after the VPS releases a stale port without restarting ComfyUI or the other worker.

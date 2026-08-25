@@ -243,6 +243,13 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
 ## Failure Semantics
 
 - An offline worker is excluded from new assignments.
+- Uploads tolerate slow VPS-to-worker routes for up to 600 seconds and retry one
+  transport failure from byte zero. While a worker owns an active job, a
+  transient `/system_stats` timeout keeps the UI state `busy` instead of
+  incorrectly flipping the GPU to `offline`.
+- Reverse SSH uses `IPQoS=none`, bounded connection setup, client keepalives,
+  and matching VPS `ClientAlive*` checks. This targets half-open sessions where
+  the reverse port remains bound but HTTP no longer flows.
 - Existing jobs retain their stable `server_id` and can be recovered through
   ComfyUI history when the prompt finished before a transient WebSocket loss.
 - A true ComfyUI execution error remains an error.

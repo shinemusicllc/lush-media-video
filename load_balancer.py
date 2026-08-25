@@ -224,7 +224,17 @@ class LoadBalancer:
         return server
 
     async def _refresh_server_status(self, server: ServerQueue):
-        server.is_online = await comfyui_client.check_server(server.url)
+        healthy = await comfyui_client.check_server(server.url)
+        if healthy:
+            server.is_online = True
+        elif not server.current_job:
+            server.is_online = False
+        else:
+            logger.warning(
+                "Health probe timed out for busy %s; preserving busy state while "
+                "the active job owns the tunnel",
+                server.id,
+            )
 
     async def _health_monitor(self):
         while True:

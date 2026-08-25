@@ -49,6 +49,17 @@ else:
         {"id": "gpu1", "url": _COMFYUI_URL, "name": "GPU #1"},
     ]
 
+COMFYUI_UPLOAD_TIMEOUT_S = float(
+    os.environ.get("COMFYUI_UPLOAD_TIMEOUT_S", "600")
+)
+COMFYUI_UPLOAD_MAX_ATTEMPTS = max(
+    1,
+    int(os.environ.get("COMFYUI_UPLOAD_MAX_ATTEMPTS", "2")),
+)
+COMFYUI_UPLOAD_RETRY_DELAY_S = float(
+    os.environ.get("COMFYUI_UPLOAD_RETRY_DELAY_S", "5")
+)
+
 # ============================================================
 # Paths
 # ============================================================

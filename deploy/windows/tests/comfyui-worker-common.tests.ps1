@@ -160,6 +160,11 @@ try {
     Assert-True ($tunnelArgs -contains "172.19.0.1:18188:127.0.0.1:8188") "tunnel forwarding argument"
     Assert-True ($tunnelArgs -contains "deploy@82.197.71.6") "tunnel remote argument"
     Assert-True ($tunnelArgs -contains "UserKnownHostsFile=D:\ComfyUI-Autostart\known_hosts") "isolated known hosts file"
+    Assert-True ($tunnelArgs -contains "IPQoS=none") "router-safe SSH QoS"
+    Assert-True ($tunnelArgs -contains "ConnectTimeout=10") "bounded SSH connect timeout"
+    Assert-True ($tunnelArgs -contains "ConnectionAttempts=3") "bounded SSH connection attempts"
+    Assert-True ($tunnelArgs -contains "ServerAliveInterval=10") "fast SSH keepalive interval"
+    Assert-True ($tunnelArgs -contains "ServerAliveCountMax=3") "fast SSH keepalive failure limit"
 
     $missingProcess = Get-ManagedComfyProcess `
         -ComfyDirectory "D:\path-that-does-not-exist" `

@@ -14,7 +14,13 @@ from datetime import datetime
 import httpx
 import websockets
 
-from config import WORKFLOW_PATH, WORKFLOW_DEFAULTS
+from config import (
+    COMFYUI_UPLOAD_MAX_ATTEMPTS,
+    COMFYUI_UPLOAD_RETRY_DELAY_S,
+    COMFYUI_UPLOAD_TIMEOUT_S,
+    WORKFLOW_DEFAULTS,
+    WORKFLOW_PATH,
+)
 from workflow_guard import (
     enforce_locked_diffusion_models,
     enforce_max_video_length,
@@ -80,17 +86,43 @@ async def is_prompt_active(server_url: str, prompt_id: str, timeout: float = 5) 
 async def upload_image(server_url: str, image_path: str, filename: str) -> str:
     """Upload ảnh lên ComfyUI, trả về tên file trên server."""
     headers = _get_tunnel_headers()
-    async with httpx.AsyncClient(timeout=60, headers=headers) as client:
-        with open(image_path, "rb") as f:
-            r = await client.post(
-                f"{server_url}/upload/image",
-                files={"image": (filename, f, "image/jpeg")},
-                data={"overwrite": "true"},
+    timeout = httpx.Timeout(
+        connect=15,
+        read=COMFYUI_UPLOAD_TIMEOUT_S,
+        write=COMFYUI_UPLOAD_TIMEOUT_S,
+        pool=30,
+    )
+
+    for attempt in range(1, COMFYUI_UPLOAD_MAX_ATTEMPTS + 1):
+        try:
+            async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
+                # Reopen the file for every retry so multipart starts at byte zero.
+                with open(image_path, "rb") as f:
+                    r = await client.post(
+                        f"{server_url}/upload/image",
+                        files={"image": (filename, f, "image/jpeg")},
+                        data={"overwrite": "true"},
+                    )
+                    r.raise_for_status()
+                    result = r.json()
+                    logger.info(f"Uploaded {filename} → ComfyUI: {result['name']}")
+                    return result["name"]
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            if attempt >= COMFYUI_UPLOAD_MAX_ATTEMPTS:
+                raise
+            delay = COMFYUI_UPLOAD_RETRY_DELAY_S * attempt
+            logger.warning(
+                "ComfyUI upload transport failed for %s (attempt %s/%s): %s; "
+                "retrying in %.1fs",
+                filename,
+                attempt,
+                COMFYUI_UPLOAD_MAX_ATTEMPTS,
+                exc,
+                delay,
             )
-            r.raise_for_status()
-            result = r.json()
-            logger.info(f"Uploaded {filename} → ComfyUI: {result['name']}")
-            return result["name"]
+            await asyncio.sleep(delay)
+
+    raise RuntimeError("ComfyUI upload retry loop ended unexpectedly")
 
 
 # ── Workflow builder ────────────────────────────────────────
