@@ -28,7 +28,11 @@ class ReverseTunnelWatchdogTests(unittest.TestCase):
         self._write_stub(
             "ss",
             "#!/usr/bin/env bash\n"
-            'if test "${FAKE_LISTENER:-present}" = "present"; then\n'
+            'if [[ "$*" = *"state established"* ]]; then\n'
+            '  if test "${FAKE_ACTIVE_CONNECTIONS:-absent}" = "present"; then\n'
+            '    echo \'ESTAB 0 0 172.19.0.1:18288 172.19.0.2:45000\'\n'
+            "  fi\n"
+            'elif test "${FAKE_LISTENER:-present}" = "present"; then\n'
             '  echo \'LISTEN 0 128 172.19.0.1:18288 0.0.0.0:* users:(("sshd",pid=4242,fd=7))\'\n'
             "fi\n",
         )
@@ -107,6 +111,21 @@ class ReverseTunnelWatchdogTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.kill_log.read_text(encoding="utf-8").strip(), "-TERM 4242")
+
+    def test_active_upload_defers_stale_listener_cleanup(self):
+        self._run(FAKE_CURL_RESULT="failed")
+
+        result = self._run(
+            FAKE_CURL_RESULT="failed",
+            FAKE_ACTIVE_CONNECTIONS="present",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.kill_log.exists())
+        self.assertEqual(
+            (self.state_dir / "18288.failures").read_text(encoding="ascii").strip(),
+            "2",
+        )
 
     def test_unsafe_listener_is_never_terminated(self):
         self._run(FAKE_CURL_RESULT="failed")

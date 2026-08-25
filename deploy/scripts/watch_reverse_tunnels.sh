@@ -64,6 +64,15 @@ listener_pid() {
     printf '%s\n' "${pids[0]}"
 }
 
+has_active_forward_connections() {
+    local port="$1"
+    local output
+    output="$(
+        "${SS_BIN}" -H -nt state established "sport = :${port}" 2>/dev/null || true
+    )"
+    [[ -n "${output}" ]]
+}
+
 is_verified_deploy_sshd() {
     local pid="$1"
     local process_user process_command process_args
@@ -99,6 +108,14 @@ watch_port() {
     if probe_port "${port}"; then
         rm -f -- "${state_file}"
         log_message "port=${port} recovered during recheck; no action"
+        return 0
+    fi
+
+    # A large upload shares the same SSH connection as the health probe. On a
+    # congested route the probe can time out while the upload is still moving.
+    # Killing that listener would reset the multipart request in ComfyUI.
+    if has_active_forward_connections "${port}"; then
+        log_message "port=${port} has active forwarded connections; deferred stale cleanup"
         return 0
     fi
 
