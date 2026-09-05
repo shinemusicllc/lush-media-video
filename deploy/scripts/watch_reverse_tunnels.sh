@@ -5,6 +5,7 @@ readonly -a ALLOWED_PORTS=(18188 18288)
 readonly STATE_DIR="${WATCHDOG_STATE_DIR:-/run/lush-media-reverse-tunnel-watchdog}"
 readonly GATEWAY="${WATCHDOG_GATEWAY:-172.19.0.1}"
 readonly FAILURE_THRESHOLD="${WATCHDOG_FAILURE_THRESHOLD:-2}"
+readonly ACTIVE_FORWARD_GRACE_FAILURES="${WATCHDOG_ACTIVE_FORWARD_GRACE_FAILURES:-3}"
 readonly CURL_BIN="${WATCHDOG_CURL_BIN:-curl}"
 readonly SS_BIN="${WATCHDOG_SS_BIN:-ss}"
 readonly PS_BIN="${WATCHDOG_PS_BIN:-ps}"
@@ -35,6 +36,10 @@ probe_port() {
 
 failure_file() {
     printf '%s/%s.failures' "${STATE_DIR}" "$1"
+}
+
+active_forward_file() {
+    printf '%s/%s.active-forward' "${STATE_DIR}" "$1"
 }
 
 read_failures() {
@@ -87,12 +92,14 @@ is_verified_deploy_sshd() {
 
 watch_port() {
     local port="$1"
-    local state_file failures pid rechecked_pid
+    local state_file active_file failures active_deferrals pid rechecked_pid
     state_file="$(failure_file "${port}")"
+    active_file="$(active_forward_file "${port}")"
 
     if probe_port "${port}"; then
-        if [[ -f "${state_file}" ]]; then
+        if [[ -f "${state_file}" || -f "${active_file}" ]]; then
             rm -f -- "${state_file}"
+            rm -f -- "${active_file}"
             log_message "port=${port} recovered; cleared failure state"
         fi
         return 0
@@ -113,10 +120,18 @@ watch_port() {
 
     # A large upload shares the same SSH connection as the health probe. On a
     # congested route the probe can time out while the upload is still moving.
-    # Killing that listener would reset the multipart request in ComfyUI.
+    # Preserve it for a bounded grace window; a dead session must not keep a
+    # worker offline forever.
     if has_active_forward_connections "${port}"; then
-        log_message "port=${port} has active forwarded connections; deferred stale cleanup"
-        return 0
+        active_deferrals="$(( $(read_failures "${active_file}") + 1 ))"
+        printf '%s\n' "${active_deferrals}" > "${active_file}"
+        if (( active_deferrals <= ACTIVE_FORWARD_GRACE_FAILURES )); then
+            log_message "port=${port} has active forwarded connections; deferred stale cleanup (${active_deferrals}/${ACTIVE_FORWARD_GRACE_FAILURES})"
+            return 0
+        fi
+        log_message "port=${port} active-forward grace exceeded; continuing stale cleanup"
+    else
+        rm -f -- "${active_file}"
     fi
 
     pid="$(listener_pid "${port}" || true)"
@@ -139,6 +154,7 @@ watch_port() {
 
     "${KILL_BIN}" -TERM "${pid}"
     rm -f -- "${state_file}"
+    rm -f -- "${active_file}"
     log_message "port=${port} sent TERM to verified stale deploy sshd pid=${pid}"
 }
 

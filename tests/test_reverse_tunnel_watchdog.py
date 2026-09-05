@@ -72,6 +72,7 @@ class ReverseTunnelWatchdogTests(unittest.TestCase):
                 "WATCHDOG_KILL_BIN": (self.bin_dir / "kill").as_posix(),
                 "WATCHDOG_LOGGER_BIN": (self.bin_dir / "logger").as_posix(),
                 "WATCHDOG_FLOCK_BIN": (self.bin_dir / "flock").as_posix(),
+                "WATCHDOG_ACTIVE_FORWARD_GRACE_FAILURES": "3",
                 "WATCHDOG_KILL_LOG": self.kill_log.as_posix(),
             }
         )
@@ -126,6 +127,17 @@ class ReverseTunnelWatchdogTests(unittest.TestCase):
             (self.state_dir / "18288.failures").read_text(encoding="ascii").strip(),
             "2",
         )
+
+    def test_active_upload_cleanup_is_bounded(self):
+        for _ in range(5):
+            result = self._run(
+                FAKE_CURL_RESULT="failed",
+                FAKE_ACTIVE_CONNECTIONS="present",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+        self.assertEqual(self.kill_log.read_text(encoding="utf-8").strip(), "-TERM 4242")
+        self.assertFalse((self.state_dir / "18288.active-forward").exists())
 
     def test_unsafe_listener_is_never_terminated(self):
         self._run(FAKE_CURL_RESULT="failed")

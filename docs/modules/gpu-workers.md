@@ -251,8 +251,10 @@ Perform these steps from machine 2 after cloning/pulling `origin/main`.
   and matching VPS `ClientAlive*` checks. This targets half-open sessions where
   the reverse port remains bound but HTTP no longer flows.
 - The VPS stale-listener watchdog must defer `TERM` while `ss` reports an
-  established forwarded connection on that reverse port. Slow uploads can
-  block `/system_stats`; an active data channel is not a stale listener.
+  established forwarded connection on that reverse port for a bounded grace
+  window. Slow uploads can block `/system_stats`; after the grace window,
+  continued health failure is treated as a stale tunnel so one dead session
+  cannot keep a worker offline forever.
 - Existing jobs retain their stable `server_id` and can be recovered through
   ComfyUI history when the prompt finished before a transient WebSocket loss.
 - A true ComfyUI execution error remains an error.

@@ -3,7 +3,7 @@
 ### 2026-08-25 - Harden slow reverse-tunnel uploads
 - Fixed: raised ComfyUI upload transfer timeout from 60 to 600 seconds, added one transport retry that reopens the input from byte zero, and kept an active worker `busy` during a transient health-probe timeout.
 - Changed: Windows tunnels now use `IPQoS=none`, bounded connection setup, and faster client keepalives; VPS `sshd` adds complementary server-side keepalives for stale reverse sessions.
-- Fixed: the VPS stale-listener watchdog now defers cleanup while the reverse port has an established forwarded connection, so a slow multipart upload is not mistaken for a dead tunnel.
+- Fixed: the VPS stale-listener watchdog now defers cleanup while the reverse port has an established forwarded connection, with a bounded three-pass grace so a dead session cannot keep a worker offline forever.
 - Verified: 28 Python tests and both Windows worker suites passed; local GPU2 and both VPS reverse endpoints returned HTTP 200 after the scoped restart.
 
 ### 2026-08-03 - Self-heal stale reverse SSH listeners

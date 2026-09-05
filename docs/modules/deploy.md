@@ -25,7 +25,10 @@ The deploy module owns VPS Docker Compose runtime, helper scripts, systemd backu
 - `install_helpers.sh` installs both systemd timers. The reverse-tunnel timer is
   root-owned, keeps state only in `/run`, probes ports `18188`/`18288`, and may
   send `TERM` only to a verified `deploy`-owned `sshd` child after two failed
-  checks and one immediate recheck. It must never use a broad process kill.
+  checks and one immediate recheck. It preserves active forwarded connections
+  for a bounded grace window (`WATCHDOG_ACTIVE_FORWARD_GRACE_FAILURES`,
+  default `3` timer passes), then cleans up if health still fails. It must never
+  use a broad process kill.
 
 ## VPS Notes
 
