@@ -48,7 +48,10 @@ import httpx
 from load_balancer import balancer
 import comfyui_client
 from telegram_bot import telegram_bot_service
-from workflow_guard import enforce_locked_diffusion_models
+from workflow_guard import (
+    enforce_locked_diffusion_models,
+    enforce_max_video_length,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -198,6 +201,12 @@ def _workflow_preset_dir() -> Path | None:
     return preset_dir.resolve()
 
 
+_WORKFLOW_PRESET_ALIASES = {
+    "Jazz & lofi 5s Co Loop.json": "Jazz & lofi 6s Co Loop.json",
+    "Jazz & lofi 5s Khong Loop.json": "Jazz & lofi 6s Khong Loop.json",
+}
+
+
 def _resolve_workflow_preset(name: str) -> Path | None:
     preset_dir = _workflow_preset_dir()
     if not preset_dir:
@@ -206,6 +215,7 @@ def _resolve_workflow_preset(name: str) -> Path | None:
     candidate_name = Path(name).name
     if not candidate_name.lower().endswith(".json"):
         return None
+    candidate_name = _WORKFLOW_PRESET_ALIASES.get(candidate_name, candidate_name)
 
     candidate = (preset_dir / candidate_name).resolve()
     if candidate.parent != preset_dir or not candidate.is_file():
@@ -505,6 +515,14 @@ async def create_job(
             "Locked diffusion model names for job %s (%s UNETLoader nodes)",
             job_id[:8],
             locked_model_updates,
+        )
+
+    length_updates = enforce_max_video_length(workflow_payload)
+    if length_updates:
+        logger.info(
+            "Capped/defaulted video length for job %s (%s Wan video nodes)",
+            job_id[:8],
+            length_updates,
         )
 
     workflow_archive_file = f"{job_id}.json"

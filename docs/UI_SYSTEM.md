@@ -22,3 +22,5 @@
 - Modals should use a simple backdrop, centered panel, and direct controls.
 - Settings and account-modal inputs use the login form shape: 46px height, 12px radius, charcoal fill, gray border, and green focus ring.
 - Vietnamese UI text must remain UTF-8 and avoid all-caps transformations for long strings.
+- Display worker names as `Máy 1` and `Máy 2`; keep `gpu1` and `gpu2` as
+  backend/runtime identifiers only.

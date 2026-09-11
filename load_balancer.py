@@ -166,7 +166,7 @@ class LoadBalancer:
         async with self._lock:
             server = await self._select_server()
             if not server:
-                raise RuntimeError("No ComfyUI servers configured")
+                raise RuntimeError("No online ComfyUI servers available")
 
         await db.create_job(
             job_id,
@@ -214,13 +214,27 @@ class LoadBalancer:
             for i in range(len(self.servers))
         ]
         online = [s for s in ordered if s.is_online]
-        candidates = online or ordered
-        server = min(candidates, key=lambda s: (1 if s.current_job else 0, s.queue.qsize()))
+        if not online:
+            return None
+        server = min(
+            online,
+            key=lambda s: (1 if s.current_job else 0, s.queue.qsize()),
+        )
         self._next_index = (self.servers.index(server) + 1) % len(self.servers)
         return server
 
     async def _refresh_server_status(self, server: ServerQueue):
-        server.is_online = await comfyui_client.check_server(server.url)
+        healthy = await comfyui_client.check_server(server.url)
+        if healthy:
+            server.is_online = True
+        elif not server.current_job:
+            server.is_online = False
+        else:
+            logger.warning(
+                "Health probe timed out for busy %s; preserving busy state while "
+                "the active job owns the tunnel",
+                server.id,
+            )
 
     async def _health_monitor(self):
         while True:

@@ -4,6 +4,7 @@
 | -------------------------- | ----------------------------------------------- | -------------- | ---------- |
 | JWT auth + role-based account settings | Keep the existing WebSocket-compatible JWT flow; expose password changes to every account and user CRUD to admins only, while preserving one reachable admin account. | Auth + administration | 2026-09-11 |
 | Normalize Wan 2.2 high/low diffusion model names at runtime | Uploaded or stale workflow files can still reference old diffusion models and fail on ComfyUI; normalize UNETLoader model names to the configured fp8 KJ high/low files before archive and prompt submission. | Workflow reliability | 2026-05-28 |
+| Run one independently supervised ComfyUI worker per Windows machine | A dual-GPU single host is one failure domain; independent hosts, SSH keys, reverse ports, and watchdogs let the remaining worker continue accepting jobs when one machine restarts or fails. The backend chooses only online workers, prefers idle workers, then uses queue depth and round-robin tie-breaking. | GPU scheduling and operations | 2026-07-29 |
 | Build VPS app only from clean Git commit | Dirty working trees made runtime code hard to trace; deploy now records `APP_COMMIT` and refuses dirty tracked builds. | Operations | 2026-05-20 |
 | Keep `deploy/data` outside source/build context | Runtime uploads, SQLite, workflows, and backups must not appear as untracked source or enter Docker images. | Operations | 2026-05-20 |
 | FastAPI thay Flask         | Async, WS native, performance tốt hơn           | Backend core   | 2026-03-03 |
@@ -24,3 +25,18 @@
 | Telegram bot chi chot batch sau khoang lang upload | Upload document co the den lech nhịp trong nhung giay ke tiep; cho chat on dinh roi moi thong bao/enqueue se giam nhac sai va tranh tao duplicate job. | Telegram UX + queue reliability | 2026-03-23 |
 | Telegram bot enqueue ngay khi du 2 file, chi tre hint thieu file | User uu tien cam giac phan hoi nhanh; bot se chi delay nhac thieu file cho case chat hien chi thay 1 file, con khi du workflow + image thi enqueue ngay. | Telegram UX + queue reliability | 2026-03-23 |
 | Telegram completion notifications phai co retry va backfill | Notify ra Telegram la outbound network call co the that bai tam thoi; can tu retry va quet job chua duoc danh dau `telegram_notified_at` de tranh rot thong bao khi nhieu chat dung dong thoi. | Telegram reliability | 2026-03-24 |
+| Use regular VAE with duration-specific bundled workflows | Controlled GPU2 output showed tiled VAE brightness variation about 23 times higher than regular VAE. With 128 GB RAM, regular VAE completed safely; Jazz returns to 73 frames/6s while Kling and Livewallpaper remain 61 frames/5s. | Workflow quality and reliability | 2026-07-30 |
+| Reconcile one ComfyUI process per worker directory | A runtime config/batch mismatch allowed an orphan 8288 process beside the intended 8188 worker; process discovery must span all ports under the configured ComfyUI directory and retain one configured instance. | GPU worker operations | 2026-07-30 |
+| Preserve ComfyUI model cache between consecutive jobs | Two fresh-seed 61-frame renders completed consecutively on GPU1 without `/free`; the warm second render was faster and retained more RAM headroom than the cold first render. Full unload after every job would add reload latency without improving this measured path. | GPU worker performance and stability | 2026-07-30 |
+| Giới hạn workflow được app chấp nhận ở tối đa 73 frame | Worker 128 GB có đủ headroom cho regular VAE 73 frame; workflow 5 giây hợp lệ phải giữ 61 frame thay vì bị kéo dài. Web, Telegram và prompt cuối cùng áp dụng cùng policy trước khi archive/submit. | Workflow reliability | 2026-07-30 |
+| Run GPU1 from a visible interactive launcher | A visible ComfyUI console lets an ordinary on-site operator inspect output and recover the worker by double-clicking one Desktop batch. The singleton supervisor/watchdog remains active, while the legacy `SYSTEM` task stays disabled to prevent duplicate runtimes. | GPU worker operations | 2026-07-30 |
+| Use VPS reverse-tunnel watchdog with worker self-reconnect | A stale server-side SSH child can hold a reverse port after the Windows-side tunnel disappears. Workers already detect a missing `ssh.exe` and retry; the VPS must safely release only the verified stale listener after repeated end-to-end probe failures. | GPU worker operations | 2026-08-03 |
+
+## GPU-004 - Guard visible workers with an interactive-user task
+
+- Visible GPU workers run only after Windows login and keep the legacy
+  `SYSTEM` worker task disabled for rollback.
+- A separate hidden task under the exact interactive user monitors the visible
+  supervisor and opens a new worker window when the window or supervisor exits.
+- The guard is single-instance, preserves active ComfyUI jobs, and only cleans
+  orphan ComfyUI/tunnel processes scoped to that worker before an idle restart.

@@ -1,0 +1,9 @@
+[Unit]
+Description=Lush Media reverse SSH tunnel watchdog
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/lush-media-video/app/deploy/scripts/watch_reverse_tunnels.sh
+TimeoutStartSec=45

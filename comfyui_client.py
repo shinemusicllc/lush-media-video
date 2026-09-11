@@ -14,8 +14,17 @@ from datetime import datetime
 import httpx
 import websockets
 
-from config import WORKFLOW_PATH, WORKFLOW_DEFAULTS
-from workflow_guard import enforce_locked_diffusion_models
+from config import (
+    COMFYUI_UPLOAD_MAX_ATTEMPTS,
+    COMFYUI_UPLOAD_RETRY_DELAY_S,
+    COMFYUI_UPLOAD_TIMEOUT_S,
+    WORKFLOW_DEFAULTS,
+    WORKFLOW_PATH,
+)
+from workflow_guard import (
+    enforce_locked_diffusion_models,
+    enforce_max_video_length,
+)
 
 logger = logging.getLogger("comfyui_client")
 
@@ -77,17 +86,43 @@ async def is_prompt_active(server_url: str, prompt_id: str, timeout: float = 5) 
 async def upload_image(server_url: str, image_path: str, filename: str) -> str:
     """Upload ảnh lên ComfyUI, trả về tên file trên server."""
     headers = _get_tunnel_headers()
-    async with httpx.AsyncClient(timeout=60, headers=headers) as client:
-        with open(image_path, "rb") as f:
-            r = await client.post(
-                f"{server_url}/upload/image",
-                files={"image": (filename, f, "image/jpeg")},
-                data={"overwrite": "true"},
+    timeout = httpx.Timeout(
+        connect=15,
+        read=COMFYUI_UPLOAD_TIMEOUT_S,
+        write=COMFYUI_UPLOAD_TIMEOUT_S,
+        pool=30,
+    )
+
+    for attempt in range(1, COMFYUI_UPLOAD_MAX_ATTEMPTS + 1):
+        try:
+            async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
+                # Reopen the file for every retry so multipart starts at byte zero.
+                with open(image_path, "rb") as f:
+                    r = await client.post(
+                        f"{server_url}/upload/image",
+                        files={"image": (filename, f, "image/jpeg")},
+                        data={"overwrite": "true"},
+                    )
+                    r.raise_for_status()
+                    result = r.json()
+                    logger.info(f"Uploaded {filename} → ComfyUI: {result['name']}")
+                    return result["name"]
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            if attempt >= COMFYUI_UPLOAD_MAX_ATTEMPTS:
+                raise
+            delay = COMFYUI_UPLOAD_RETRY_DELAY_S * attempt
+            logger.warning(
+                "ComfyUI upload transport failed for %s (attempt %s/%s): %s; "
+                "retrying in %.1fs",
+                filename,
+                attempt,
+                COMFYUI_UPLOAD_MAX_ATTEMPTS,
+                exc,
+                delay,
             )
-            r.raise_for_status()
-            result = r.json()
-            logger.info(f"Uploaded {filename} → ComfyUI: {result['name']}")
-            return result["name"]
+            await asyncio.sleep(delay)
+
+    raise RuntimeError("ComfyUI upload retry loop ended unexpectedly")
 
 
 # ── Workflow builder ────────────────────────────────────────
@@ -118,6 +153,13 @@ def build_prompt(
         logger.info(
             "Locked diffusion model names before prompt build (%s UNETLoader nodes)",
             locked_model_updates,
+        )
+
+    length_updates = enforce_max_video_length(prompt)
+    if length_updates:
+        logger.info(
+            "Capped/defaulted video length before prompt build (%s Wan video nodes)",
+            length_updates,
         )
 
     patched_image = False
@@ -183,6 +225,26 @@ async def queue_prompt(server_url: str, prompt: dict, client_id: str) -> str:
 # ── WebSocket progress listener ────────────────────────────
 
 
+def _classify_history_item(item: dict) -> tuple[str, str | None] | None:
+    status = item.get("status") or {}
+    status_str = str(status.get("status_str", "")).strip().lower()
+    if status_str in {"error", "failed"}:
+        error = "ComfyUI execution failed"
+        for message in status.get("messages") or []:
+            if (
+                isinstance(message, list)
+                and len(message) > 1
+                and isinstance(message[1], dict)
+                and message[1].get("exception_message")
+            ):
+                error = str(message[1]["exception_message"])
+                break
+        return ("error", error)
+    if status.get("completed") or status_str == "success" or bool(item.get("outputs")):
+        return ("done", None)
+    return None
+
+
 async def listen_progress(
     server_url: str,
     prompt_id: str,
@@ -213,6 +275,7 @@ async def listen_progress(
     TOTAL_NODES = 16  # 16 nodes trong FULLHD_6S_Loop_API.json
     executed_nodes = set()
     last_progress_pct = 0
+    last_history_check = asyncio.get_running_loop().time()
 
     try:
         async with websockets.connect(
@@ -232,14 +295,14 @@ async def listen_progress(
                         hist = await get_history(server_url, prompt_id)
                         if prompt_id in hist:
                             item = hist[prompt_id]
-                            status = item.get("status", {})
-                            outputs = item.get("outputs", {})
-                            status_str = str(status.get("status_str", "")).lower()
-                            completed = bool(status.get("completed", False))
-
-                            # Some ComfyUI builds don't always set status.completed,
-                            # but outputs are already finalized.
-                            if completed or status_str == "success" or bool(outputs):
+                            classification = _classify_history_item(item)
+                            if classification:
+                                terminal_status, terminal_error = classification
+                                if terminal_status == "error":
+                                    return {
+                                        "status": "error",
+                                        "error": terminal_error,
+                                    }
                                 logger.info("Job completed (detected via history)")
                                 if on_progress:
                                     await on_progress(100)
@@ -335,12 +398,35 @@ async def listen_progress(
                         .get("queue_remaining", -1)
                     )
                     logger.debug(f"Queue remaining: {queue_remaining}")
+                    # Some ComfyUI builds keep the WebSocket open with status
+                    # heartbeats after execution has already finished. Poll
+                    # history periodically so the worker is released even
+                    # when the final `executing(node=None)` event is missed.
+                    now = asyncio.get_running_loop().time()
+                    if now - last_history_check >= 15:
+                        last_history_check = now
+                        try:
+                            hist = await get_history(server_url, prompt_id)
+                            item = hist.get(prompt_id)
+                            if item:
+                                classification = _classify_history_item(item)
+                                if classification:
+                                    terminal_status, terminal_error = classification
+                                    if terminal_status == "error":
+                                        return {
+                                            "status": "error",
+                                            "error": terminal_error,
+                                        }
+                                    if on_progress:
+                                        await on_progress(100)
+                                    return {"status": "done"}
+                        except Exception as history_error:
+                            logger.debug(f"Periodic history check failed: {history_error}")
 
     except websockets.ConnectionClosed as e:
-        # WS đóng — check history xem job đã xong chưa
         logger.warning(f"WS closed: {e}, checking history fallback...")
         try:
-            await asyncio.sleep(2)  # đợi ComfyUI flush output
+            await asyncio.sleep(2)
             hist = await get_history(server_url, prompt_id)
             if prompt_id in hist:
                 outputs = hist[prompt_id].get("outputs", {})
@@ -351,7 +437,6 @@ async def listen_progress(
                     return {"status": "done"}
         except Exception as he:
             logger.error(f"History fallback failed: {he}")
-
         raise ConnectionError(f"Mất kết nối WS ComfyUI: {e}")
 
 
@@ -515,4 +600,3 @@ async def download_output(server_url: str, output_info: dict) -> bytes:
         r = await client.get(f"{server_url}/view", params=params)
         r.raise_for_status()
         return r.content
-

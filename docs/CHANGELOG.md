@@ -6,6 +6,41 @@
 - Added: server-side protection for admin-only APIs and safeguards against removing or demoting the last admin account.
 - Refined: rebuilt Settings as one flat split workspace matching the dashboard palette, with rounded login-style fields and a consistent account modal.
 - Refined: removed the duplicate signed-in account summary, expanded the Settings surface to the dashboard margins, and changed Settings controls/icons to the neutral white-gray app treatment.
+### 2026-08-25 - Harden slow reverse-tunnel uploads
+- Fixed: raised ComfyUI upload transfer timeout from 60 to 600 seconds, added one transport retry that reopens the input from byte zero, and kept an active worker `busy` during a transient health-probe timeout.
+- Changed: Windows tunnels now use `IPQoS=none`, bounded connection setup, and faster client keepalives; VPS `sshd` adds complementary server-side keepalives for stale reverse sessions.
+- Fixed: the VPS stale-listener watchdog now defers cleanup while the reverse port has an established forwarded connection, with a bounded three-pass grace so a dead session cannot keep a worker offline forever.
+- Verified: 28 Python tests and both Windows worker suites passed; local GPU2 and both VPS reverse endpoints returned HTTP 200 after the scoped restart.
+
+### 2026-08-03 - Self-heal stale reverse SSH listeners
+- Added: root-owned VPS timer `lush-media-reverse-tunnel-watchdog.timer`, which probes GPU reverse ports every minute and clears only a verified stale `sshd: deploy` listener after two consecutive failures plus an immediate recheck.
+- Kept: Windows workers remain responsible for local ComfyUI and `ssh.exe` supervision; they reconnect after the VPS releases a stale port without restarting ComfyUI or the other worker.
+- Validated: automated tests cover healthy reset, first-failure no-op, verified stale-session termination, and refusal of unsafe process candidates.
+
+### 2026-07-30 - Auto-reopen killed visible worker windows
+- Added: a single-instance per-user visible guard task that automatically opens a new interactive worker window when the window or supervisor exits.
+- Changed: Desktop/Startup launchers now start the guard task; the legacy `SYSTEM` worker task remains disabled, and scoped orphan ComfyUI/tunnel cleanup prevents duplicate ports during recovery.
+- Validated: GPU1 guard recovery kept the same guard PID, replaced shell/supervisor/ComfyUI/tunnel exactly once, restored HTTP 200 on one `127.0.0.1:8188` listener, and started ComfyUI with `--disable-auto-launch`.
+- Changed: user-facing worker labels now display `Máy 1` and `Máy 2` consistently in server indicators, job badges and the login footer while API/runtime IDs remain `gpu1` and `gpu2`.
+
+### 2026-07-30 - Restore regular VAE and duration-specific workflows
+- Changed: Jazz fallback/presets return to `6s`/73 frames; Kling and Livewallpaper remain `5s`/61 frames; all bundled workflows use regular `VAEDecode`.
+- Changed: Web, Telegram and `build_prompt` now cap video workflows at 73 frames without lengthening valid shorter workflows.
+- Added: an optional visible Desktop/Startup launcher for Windows workers; GPU1 uses it instead of an active `SYSTEM` Scheduled Task while retaining the singleton watchdog.
+- Evidence: same-input/seed GPU2 comparisons measured tiled-VAE brightness-delta p95 about 23 times higher on Jazz and 12.15 times higher on Kling; fresh and seed-changed warm regular-VAE Kling jobs both completed on the 128 GB worker.
+- Risk: regular VAE requires the measured 128 GB RAM headroom; production scheduling remains disabled during rollout and validation.
+
+### 2026-07-30 - Tile bundled VAE decode and enforce singleton GPU workers
+- Changed: fallback workflow and all five presets now use `VAEDecodeTiled` with `512/64/16/4`; all bundled Wan workflows use 61 source frames while existing filenames remain stable.
+- Added: regression tests for workflow VAE/frame contracts and supervisor checks for batch/config agreement, cross-port process reconciliation, and launch guarding.
+- Verified: GPU1 kill/restart retained one supervisor, one ComfyUI process, only listener 8188, no listener 8288, and one watchdog restart entry.
+- Risk: a 61-frame render attempt native-crashed while system RAM was exhausted, so production scheduling remains disabled pending a clean render with adequate free RAM.
+
+### 2026-07-29 17:30 - Split GPU1 into an independently supervised worker
+- Changed: synchronized local/GitHub/VPS source, made offline-aware idle/queue/round-robin scheduling and terminal ComfyUI history recovery explicit, and deployed commit `79fb6f4`.
+- Added: tested Windows ComfyUI/SSH watchdog scripts, a `SYSTEM` startup task for GPU1, a restricted reverse tunnel on `172.19.0.1:18188`, backend/supervisor regression tests, and the GPU2 handoff runbook.
+- Affected: `comfyui_client.py`, `load_balancer.py`, `tests/`, `deploy/windows/`, `docs/PROJECT_BRIEF.md`, `docs/MEMORY_INDEX.md`, `docs/DECISIONS*`, `docs/modules/gpu-workers.md`.
+- Risk: Medium; connectivity and self-recovery are verified, but GPU1 twice hit a native `torch.OutOfMemoryError` on the existing Full HD Wan workflow, so hardware/runtime VRAM stability remains a separate follow-up.
 
 ### 2026-05-28 - Switch diffusion models to Wan 2.2 fp8 KJ
 - Changed: switched the default workflow, bundled workflow presets, and runtime diffusion model normalization to `Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors` and `Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors`.
@@ -174,3 +209,21 @@
 - Restored the fixed completed-job contract (video + last-frame image) and added a workflow download action to Grid cards.
 - Added compact status badges in Grid while preserving the last selected List/Grid mode in browser storage.
 - Allowed queued jobs to be deleted while keeping running jobs protected; workers now skip queue entries whose DB rows were deleted before execution.
+
+## 2026-07-30 - Validate consecutive warm-cache GPU1 renders
+
+- Verified two fresh-seed 61-frame jobs completed consecutively on GPU1/8188 without `/free`; the warm job reduced runtime from 351.3 to 290.7 seconds and kept at least 15.71 GB RAM available.
+- Confirmed both MP4 outputs, an empty final queue, and the same sole ComfyUI PID throughout.
+- Documented that normal worker operation preserves ComfyUI's model cache between jobs.
+
+## 2026-07-30 - Khóa workflow về 5 giây
+
+- Đổi tên fallback và hai preset Jazz từ `6s` thành `5s`; API chỉ liệt kê tên mới nhưng vẫn resolve hai alias cũ.
+- Khóa mọi node `WanFirstLastFrameToVideo` ở `61` frame cho web, Telegram, archive và prompt cuối gửi sang ComfyUI.
+- Thêm regression test cho guard, preset alias, workflow đóng gói và các đường nhận workflow.
+
+## 2026-07-30 - Xác nhận GPU2 sau nâng cấp 128 GB RAM
+
+- Cold và warm job 61 frame đều pass an toàn; RAM available thấp nhất lần lượt là 69.708 GiB và 77.548 GiB.
+- Xác nhận ComfyUI dùng khoảng 75–77 GiB private memory trong khi Codex chỉ đạt 1.262 GiB.
+- Dọn đúng stale VPS SSH child trên `18288`; supervisor GPU2 tự tạo tunnel mới và cả VPS host/app container đều health HTTP 200.

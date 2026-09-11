@@ -49,6 +49,17 @@ else:
         {"id": "gpu1", "url": _COMFYUI_URL, "name": "GPU #1"},
     ]
 
+COMFYUI_UPLOAD_TIMEOUT_S = float(
+    os.environ.get("COMFYUI_UPLOAD_TIMEOUT_S", "600")
+)
+COMFYUI_UPLOAD_MAX_ATTEMPTS = max(
+    1,
+    int(os.environ.get("COMFYUI_UPLOAD_MAX_ATTEMPTS", "2")),
+)
+COMFYUI_UPLOAD_RETRY_DELAY_S = float(
+    os.environ.get("COMFYUI_UPLOAD_RETRY_DELAY_S", "5")
+)
+
 # ============================================================
 # Paths
 # ============================================================
@@ -102,6 +113,7 @@ TELEGRAM_POLL_INTERVAL_S = float(os.environ.get("TELEGRAM_POLL_INTERVAL_S", "2")
 WORKFLOW_DEFAULTS = {
     "width": 1920,
     "height": 1080,
+    "length": 73,
 }
 LOCKED_HIGH_DIFFUSION_MODEL = "Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors"
 LOCKED_LOW_DIFFUSION_MODEL = "Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors"
