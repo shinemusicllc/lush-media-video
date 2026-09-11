@@ -108,13 +108,17 @@
             </button>
 
             <nav class="sidebar-nav">
-                <a class="sidebar-link active" href="#">
+                <a id="dashboard-nav-link" class="sidebar-link active" href="#dashboard" data-app-view="dashboard">
                     <span class="material-symbols-rounded">dashboard</span>
                     <span class="sidebar-label">Tổng quan</span>
                 </a>
-                <a class="sidebar-link" href="#">
+                <a id="queue-nav-link" class="sidebar-link" href="#dashboard" data-app-view="dashboard">
                     <span class="material-symbols-rounded">video_settings</span>
                     <span class="sidebar-label">Hàng chờ video</span>
+                </a>
+                <a id="settings-nav-link" class="sidebar-link" href="#settings" data-app-view="settings" hidden>
+                    <span class="material-symbols-rounded">settings</span>
+                    <span class="sidebar-label">Cài đặt</span>
                 </a>
 
             </nav>
@@ -144,9 +148,9 @@
                         <nav class="breadcrumbs">
                             <span>Dashboard</span>
                             <span class="material-symbols-rounded">chevron_right</span>
-                            <span class="active">Video Queue</span>
+                            <span id="topbar-view-label" class="active">Video Queue</span>
                         </nav>
-                        <h1>Lush Media</h1>
+                        <h1 id="topbar-title">Lush Media</h1>
                     </div>
                 </div>
 
@@ -160,7 +164,7 @@
                 </div>
             </header>
 
-            <section class="cinematic-hero panel" aria-label="Hero tổng quan">
+            <section id="dashboard-hero" class="cinematic-hero panel" aria-label="Hero tổng quan">
                 <div class="cinematic-hero-content">
                     <div class="cinematic-copy">
                         <p class="cinematic-eyebrow">AI CINEMATIC WORKFLOW</p>
@@ -175,7 +179,7 @@
                 </div>
             </section>
 
-            <main class="main-layout">
+            <main id="dashboard-main-layout" class="main-layout">
                 <section class="upload-section">
                     <div class="panel section-card">
                         <div class="upload-header">
@@ -303,6 +307,66 @@
                     </div>
                 </section>
             </main>
+
+            <section id="settings-view" class="settings-view" aria-labelledby="settings-title" style="display:none">
+                <div class="settings-heading">
+                    <div>
+                        <h2 id="settings-title">Cài đặt tài khoản</h2>
+                        <p>Quản lý bảo mật và quyền truy cập của đội ngũ.</p>
+                    </div>
+                </div>
+
+                <div class="settings-surface">
+                    <section class="settings-section password-settings-section" aria-labelledby="password-settings-title">
+                        <div class="settings-section-heading">
+                            <span class="material-symbols-rounded">lock_reset</span>
+                            <div>
+                                <h3 id="password-settings-title">Mật khẩu</h3>
+                                <p>Sử dụng mật khẩu riêng và khó đoán cho tài khoản này.</p>
+                            </div>
+                        </div>
+                        <form id="change-password-form" class="settings-form" novalidate>
+                            <div class="input-group">
+                                <label for="current-password">Mật khẩu hiện tại</label>
+                                <input id="current-password" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu hiện tại" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="new-password">Mật khẩu mới</label>
+                                <input id="new-password" type="password" autocomplete="new-password" placeholder="Tối thiểu 1 ký tự" minlength="1" required>
+                            </div>
+                            <div class="input-group">
+                                <label for="confirm-password">Nhập lại mật khẩu mới</label>
+                                <input id="confirm-password" type="password" autocomplete="new-password" placeholder="Nhập lại mật khẩu mới" minlength="1" required>
+                            </div>
+                            <p id="password-form-message" class="form-message" aria-live="polite"></p>
+                            <button class="btn btn-ghost settings-submit" type="submit" id="change-password-btn">
+                                <span class="material-symbols-rounded">key</span>
+                                <span>Cập nhật mật khẩu</span>
+                            </button>
+                        </form>
+                    </section>
+
+                    <section id="admin-users-card" class="settings-section settings-users-section" aria-labelledby="users-settings-title" style="display:none">
+                        <div class="settings-section-heading settings-users-heading">
+                            <span class="material-symbols-rounded">group</span>
+                            <div>
+                                <h3 id="users-settings-title">Quản lý tài khoản</h3>
+                                <p>Phân quyền Admin hoặc User cho từng thành viên.</p>
+                            </div>
+                            <button class="btn btn-ghost btn-sm" type="button" id="create-user-btn">
+                                <span class="material-symbols-rounded">person_add</span>
+                                <span>Tạo tài khoản</span>
+                            </button>
+                        </div>
+                        <div id="users-list" class="users-list"></div>
+                        <p id="users-form-message" class="form-message" aria-live="polite"></p>
+                        <div id="users-empty" class="settings-empty" style="display:none">
+                            <span class="material-symbols-rounded">group_off</span>
+                            <p>Chưa có tài khoản nào</p>
+                        </div>
+                    </section>
+                </div>
+            </section>
         </section>
     </div>
 </div>
@@ -320,15 +384,50 @@
             <div class="workflow-preset-state">Đang tải workflow...</div>
         </div>
     </section>
-    <div id="workflow-tooltip" class="workflow-tooltip" role="tooltip"></div>
+            <div id="workflow-tooltip" class="workflow-tooltip" role="tooltip"></div>
+</div>
+
+<div id="user-modal" class="user-modal" aria-hidden="true" style="display:none">
+    <div class="user-modal-backdrop" data-user-modal-close="true"></div>
+    <section class="user-modal-panel" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
+        <div class="user-modal-header">
+            <div>
+                <h3 id="user-modal-title">Tạo tài khoản</h3>
+                <p id="user-modal-description">Thêm thành viên và chọn quyền truy cập.</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" type="button" id="close-user-modal-btn" title="Đóng">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </div>
+        <form id="user-form" class="settings-form" novalidate>
+            <div class="input-group">
+                <label for="managed-username">Tên đăng nhập</label>
+                <input id="managed-username" type="text" autocomplete="off" maxlength="80" required>
+            </div>
+            <div class="input-group">
+                <label for="managed-role">Vai trò</label>
+                <select id="managed-role">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="managed-password">Mật khẩu</label>
+                <input id="managed-password" type="password" autocomplete="new-password" minlength="1">
+                <span id="managed-password-hint" class="input-hint">Tối thiểu 1 ký tự.</span>
+            </div>
+            <p id="user-form-message" class="form-message" aria-live="polite"></p>
+            <div class="user-modal-actions">
+                <button class="btn btn-ghost" type="button" id="cancel-user-modal-btn">Hủy</button>
+                <button class="btn btn-ghost" type="submit" id="save-user-btn">
+                    <span class="material-symbols-rounded">save</span>
+                    <span>Lưu tài khoản</span>
+                </button>
+            </div>
+        </form>
+    </section>
 </div>
 
 <script src="/static/app.js"></script>
 </body>
 </html>
-
-
-
-
-
-

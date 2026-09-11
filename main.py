@@ -8,6 +8,7 @@ import uuid
 import json
 import asyncio
 import logging
+import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -35,7 +36,14 @@ from auth import (
     require_admin,
     decode_token,
 )
-from models import JobClearRequest, TokenResponse, UserCreate, UserLogin
+from models import (
+    JobClearRequest,
+    PasswordChange,
+    TokenResponse,
+    UserCreate,
+    UserLogin,
+    UserUpdate,
+)
 import httpx
 from load_balancer import balancer
 import comfyui_client
@@ -274,6 +282,30 @@ async def index():
 # ── Auth ────────────────────────────────────────────────────
 
 
+def _clean_username(value: str) -> str:
+    username = str(value or "").strip()
+    if not username:
+        raise HTTPException(status_code=400, detail="Tên tài khoản là bắt buộc")
+    if any(char.isspace() for char in username):
+        raise HTTPException(status_code=400, detail="Tên tài khoản không được chứa khoảng trắng")
+    if len(username) > 80:
+        raise HTTPException(status_code=400, detail="Tên tài khoản quá dài")
+    return username
+
+
+def _clean_password(value: str, *, required: bool) -> str | None:
+    password = str(value or "")
+    if not password:
+        if required:
+            raise HTTPException(status_code=400, detail="Mật khẩu là bắt buộc")
+        return None
+    if len(password.encode("utf-8")) < 1:
+        raise HTTPException(status_code=400, detail="Mật khẩu phải có ít nhất 1 ký tự")
+    if len(password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=400, detail="Mật khẩu không được dài quá 72 byte")
+    return password
+
+
 @app.post("/api/auth/login", response_model=TokenResponse)
 async def login(data: UserLogin):
     user = await db.get_user(data.username)
@@ -289,17 +321,90 @@ async def login(data: UserLogin):
 
 @app.post("/api/auth/register")
 async def register(data: UserCreate, admin: dict = Depends(require_admin)):
-    existing = await db.get_user(data.username)
+    username = _clean_username(data.username)
+    password = _clean_password(data.password, required=True)
+    role = data.role.strip().lower()
+    if role not in ("admin", "user"):
+        raise HTTPException(status_code=400, detail="Role phải là admin hoặc user")
+
+    existing = await db.get_user(username)
     if existing:
         raise HTTPException(status_code=400, detail="Username đã tồn tại")
-    hashed = hash_password(data.password)
-    user_id = await db.create_user(data.username, hashed, data.role)
-    return {"id": user_id, "username": data.username, "role": data.role}
+    hashed = hash_password(password)
+    try:
+        user_id = await db.create_user(username, hashed, role)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="Tên tài khoản đã tồn tại") from exc
+    return {"id": user_id, "username": username, "role": role}
 
 
 @app.get("/api/auth/users")
 async def list_users(admin: dict = Depends(require_admin)):
     return await db.list_users()
+
+
+@app.post("/api/auth/change-password")
+async def change_password(data: PasswordChange, user: dict = Depends(get_current_user)):
+    if not verify_password(data.current_password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không đúng")
+
+    new_password = _clean_password(data.new_password, required=True)
+    if verify_password(new_password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải khác mật khẩu hiện tại")
+
+    await db.update_user(user["id"], password_hash=hash_password(new_password))
+    return {"status": "updated"}
+
+
+@app.patch("/api/auth/users/{user_id}")
+async def update_user(user_id: int, data: UserUpdate, admin: dict = Depends(require_admin)):
+    target = await db.get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Tài khoản không tồn tại")
+    if target["id"] == admin["id"]:
+        raise HTTPException(status_code=400, detail="Hãy dùng chức năng đổi mật khẩu cho tài khoản đang đăng nhập")
+
+    username = _clean_username(data.username) if data.username is not None else None
+    password = _clean_password(data.password, required=False) if data.password is not None else None
+    role = data.role.strip().lower() if data.role is not None else None
+    if role is not None and role not in ("admin", "user"):
+        raise HTTPException(status_code=400, detail="Role phải là admin hoặc user")
+    if username is None and password is None and role is None:
+        raise HTTPException(status_code=400, detail="Không có thay đổi để lưu")
+    if target["role"] == "admin" and role == "user" and await db.count_users_by_role("admin") <= 1:
+        raise HTTPException(status_code=400, detail="Không thể hạ quyền admin cuối cùng")
+
+    try:
+        updated = await db.update_user(
+            user_id,
+            username=username,
+            password_hash=hash_password(password) if password else None,
+            role=role,
+        )
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="Tên tài khoản đã tồn tại") from exc
+    if not updated:
+        raise HTTPException(status_code=404, detail="Tài khoản không tồn tại")
+    return {
+        "id": updated["id"],
+        "username": updated["username"],
+        "role": updated["role"],
+        "created_at": updated["created_at"],
+    }
+
+
+@app.delete("/api/auth/users/{user_id}")
+async def delete_user(user_id: int, admin: dict = Depends(require_admin)):
+    target = await db.get_user_by_id(user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Tài khoản không tồn tại")
+    if target["id"] == admin["id"]:
+        raise HTTPException(status_code=400, detail="Không thể xóa tài khoản đang đăng nhập")
+    if target["role"] == "admin" and await db.count_users_by_role("admin") <= 1:
+        raise HTTPException(status_code=400, detail="Không thể xóa admin cuối cùng")
+
+    await db.delete_user(user_id)
+    return {"status": "deleted", "id": user_id}
 
 
 @app.get("/api/workflow-presets")

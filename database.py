@@ -90,6 +90,16 @@ async def get_user(username: str) -> dict | None:
             return dict(row) if row else None
 
 
+async def get_user_by_id(user_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        async with conn.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+
 async def create_user(username: str, password_hash: str, role: str = "user") -> int:
     async with aiosqlite.connect(DB_PATH) as conn:
         cur = await conn.execute(
@@ -98,6 +108,57 @@ async def create_user(username: str, password_hash: str, role: str = "user") -> 
         )
         await conn.commit()
         return cur.lastrowid
+
+
+async def update_user(
+    user_id: int,
+    username: str | None = None,
+    password_hash: str | None = None,
+    role: str | None = None,
+) -> dict | None:
+    updates = []
+    values = []
+    if username is not None:
+        updates.append("username = ?")
+        values.append(username)
+    if password_hash is not None:
+        updates.append("password_hash = ?")
+        values.append(password_hash)
+    if role is not None:
+        updates.append("role = ?")
+        values.append(role)
+    if not updates:
+        return await get_user_by_id(user_id)
+
+    values.append(user_id)
+    async with aiosqlite.connect(DB_PATH) as conn:
+        await conn.execute(
+            f"UPDATE users SET {', '.join(updates)} WHERE id = ?",
+            tuple(values),
+        )
+        await conn.commit()
+        conn.row_factory = aiosqlite.Row
+        async with conn.execute(
+            "SELECT * FROM users WHERE id = ?", (user_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            return dict(row) if row else None
+
+
+async def delete_user(user_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        cur = await conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        await conn.commit()
+        return cur.rowcount > 0
+
+
+async def count_users_by_role(role: str) -> int:
+    async with aiosqlite.connect(DB_PATH) as conn:
+        async with conn.execute(
+            "SELECT COUNT(*) FROM users WHERE role = ?", (role,)
+        ) as cur:
+            row = await cur.fetchone()
+            return int(row[0] if row else 0)
 
 
 async def list_users() -> list:

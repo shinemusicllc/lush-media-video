@@ -12,6 +12,7 @@ const state = {
     username: localStorage.getItem('username') || null,
     role: localStorage.getItem('role') || null,
     jobs: [],
+    users: [],
     currentPageJobs: [],
     ws: null,
     selectedFile: null,
@@ -63,11 +64,35 @@ const userRole = $('#user-role');
 const logoutBtn = $('#logout-btn');
 const serverInd = $('#server-indicators');
 
-const adminPanel = $('#admin-panel');
-const adminToggle = $('#admin-toggle');
-const adminContent = $('#admin-content');
-const addUserForm = $('#add-user-form');
+const dashboardHero = $('#dashboard-hero');
+const dashboardMainLayout = $('#dashboard-main-layout');
+const settingsView = $('#settings-view');
+const settingsNavLink = $('#settings-nav-link');
+const dashboardNavLink = $('#dashboard-nav-link');
+const queueNavLink = $('#queue-nav-link');
+const topbarViewLabel = $('#topbar-view-label');
+const topbarTitle = $('#topbar-title');
+const changePasswordForm = $('#change-password-form');
+const changePasswordBtn = $('#change-password-btn');
+const passwordFormMessage = $('#password-form-message');
+const adminUsersCard = $('#admin-users-card');
+const createUserBtn = $('#create-user-btn');
 const usersList = $('#users-list');
+const usersEmpty = $('#users-empty');
+const usersFormMessage = $('#users-form-message');
+const userModal = $('#user-modal');
+const userModalTitle = $('#user-modal-title');
+const userModalDescription = $('#user-modal-description');
+const userForm = $('#user-form');
+const managedUsername = $('#managed-username');
+const managedRole = $('#managed-role');
+const managedPassword = $('#managed-password');
+const managedPasswordHint = $('#managed-password-hint');
+const userFormMessage = $('#user-form-message');
+const saveUserBtn = $('#save-user-btn');
+const closeUserModalBtn = $('#close-user-modal-btn');
+const cancelUserModalBtn = $('#cancel-user-modal-btn');
+let editingUserId = null;
 
 const filterDateFrom = $('#filter-date-from');
 const filterDateTo = $('#filter-date-to');
@@ -112,6 +137,30 @@ function syncSidebarUserInfo() {
     }
 }
 
+function syncSettingsIdentity() {
+    if (adminUsersCard) adminUsersCard.style.display = state.role === 'admin' ? '' : 'none';
+    if (settingsView) settingsView.classList.toggle('user-only', state.role !== 'admin');
+    if (settingsNavLink) settingsNavLink.hidden = !state.token;
+}
+
+function setAppView(viewName) {
+    const isSettings = viewName === 'settings' && Boolean(state.token);
+    if (dashboardHero) dashboardHero.style.display = isSettings ? 'none' : '';
+    if (dashboardMainLayout) dashboardMainLayout.style.display = isSettings ? 'none' : '';
+    if (settingsView) settingsView.style.display = isSettings ? '' : 'none';
+    if (topbarViewLabel) topbarViewLabel.textContent = isSettings ? 'Cài đặt' : 'Video Queue';
+    if (topbarTitle) topbarTitle.textContent = 'Lush Media';
+
+    if (dashboardNavLink) dashboardNavLink.classList.toggle('active', !isSettings);
+    if (queueNavLink) queueNavLink.classList.remove('active');
+    if (settingsNavLink) settingsNavLink.classList.toggle('active', isSettings);
+
+    if (isSettings) {
+        syncSettingsIdentity();
+        if (state.role === 'admin') loadUsers();
+    }
+}
+
 function initSidebarUI() {
     if (sidebar) {
         const persisted = localStorage.getItem('sidebarCollapsed') === '1';
@@ -142,7 +191,17 @@ function initSidebarUI() {
         if (e.key === 'Escape') {
             closeMobileSidebar();
             closeWorkflowModal();
+            closeUserModal();
         }
+    });
+
+    document.querySelectorAll('[data-app-view]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            event.preventDefault();
+            const nextView = link.dataset.appView || 'dashboard';
+            window.location.hash = nextView === 'settings' ? 'settings' : 'dashboard';
+            setAppView(nextView);
+        });
     });
 }
 
@@ -189,6 +248,7 @@ function logout() {
 function showLogin() {
     if (loginView) loginView.style.display = '';
     if (dashboardView) dashboardView.style.display = 'none';
+    if (settingsNavLink) settingsNavLink.hidden = true;
 }
 
 function showDashboard() {
@@ -197,13 +257,14 @@ function showDashboard() {
 
     if (userDisplay) userDisplay.textContent = state.username || '';
     if (userRole) userRole.textContent = state.role || '';
-    if (adminPanel) adminPanel.style.display = state.role === 'admin' ? '' : 'none';
 
     syncSidebarUserInfo();
+    syncSettingsIdentity();
     closeMobileSidebar();
     loadJobs();
     renderServers([]);
     connectWS();
+    setAppView(window.location.hash === '#settings' ? 'settings' : 'dashboard');
 }
 
 function lockLoginAutofillReplay() {
@@ -1244,59 +1305,197 @@ function renderServers(servers) {
         .join('');
 }
 
-adminToggle?.addEventListener('click', () => {
-    const visible = adminContent.style.display === 'none';
-    adminContent.style.display = visible ? '' : 'none';
-    if (visible) loadUsers();
-});
-
-addUserForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    try {
-        const res = await api('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                username: $('#new-username').value.trim(),
-                password: $('#new-password').value,
-                role: $('#new-role').value,
-            }),
-        });
-
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.detail || 'Thêm người dùng thất bại');
-        }
-
-        $('#new-username').value = '';
-        $('#new-password').value = '';
-        loadUsers();
-    } catch (err) {
-        alert(`Lỗi: ${err.message}`);
-    }
-});
+function setFormMessage(element, message, type = 'error') {
+    if (!element) return;
+    element.textContent = message || '';
+    element.classList.toggle('success', type === 'success');
+    element.classList.toggle('error', type !== 'success');
+}
 
 async function loadUsers() {
+    if (!usersList || state.role !== 'admin') return;
+
     try {
         const res = await api('/api/auth/users');
-        if (!res.ok) return;
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Không tải được danh sách tài khoản');
+        }
 
         const users = await res.json();
-        usersList.innerHTML = users
-            .map(
-                (u) => `
-                <div class="user-item">
-                    <span>${escapeHTML(u.username)}</span>
-                    <span class="role-badge">${escapeHTML(u.role)}</span>
-                </div>
-            `
-            )
+        const visibleUsers = Array.isArray(users) ? users : [];
+        state.users = visibleUsers;
+        usersEmpty.style.display = visibleUsers.length ? 'none' : '';
+        usersList.innerHTML = visibleUsers
+            .map((user) => {
+                const isCurrentUser = user.username === state.username;
+                const isAdmin = user.role === 'admin';
+                const roleLabel = isAdmin ? 'Admin' : 'User';
+                const actionHTML = isCurrentUser
+                    ? '<span class="user-account-lock">Tài khoản hiện tại</span>'
+                    : `
+                        <button class="user-action-btn" type="button" title="Sửa tài khoản" data-edit-user="${user.id}" aria-label="Sửa tài khoản">
+                            <span class="material-symbols-rounded">edit</span>
+                        </button>
+                        <button class="user-action-btn danger" type="button" title="Xóa tài khoản" data-delete-user="${user.id}" aria-label="Xóa tài khoản">
+                            <span class="material-symbols-rounded">delete</span>
+                        </button>`;
+
+                return `
+                    <div class="settings-user-row ${isCurrentUser ? 'is-current' : ''}" data-user-id="${user.id}">
+                        <div class="settings-user-identity">
+                            <span class="settings-user-avatar material-symbols-rounded">person</span>
+                            <div>
+                                <strong>${escapeHTML(user.username)}</strong>
+                                <span>${isCurrentUser ? 'Đang đăng nhập' : 'Tài khoản hệ thống'}</span>
+                            </div>
+                        </div>
+                        <div class="settings-user-meta">
+                            <span class="role-badge ${isAdmin ? 'admin' : ''}">${roleLabel}</span>
+                            <div class="settings-user-actions">${actionHTML}</div>
+                        </div>
+                    </div>
+                `;
+            })
             .join('');
+
+        usersList.querySelectorAll('[data-edit-user]').forEach((button) => {
+            button.addEventListener('click', () => openUserModal(Number(button.dataset.editUser)));
+        });
+        usersList.querySelectorAll('[data-delete-user]').forEach((button) => {
+            button.addEventListener('click', () => deleteUser(Number(button.dataset.deleteUser)));
+        });
     } catch (err) {
         console.error('loadUsers error:', err);
+        setFormMessage(usersFormMessage, err.message);
     }
 }
+
+function openUserModal(userId = null) {
+    if (!userModal || !managedUsername || !managedRole || !managedPassword) return;
+
+    editingUserId = userId;
+    const user = userId ? state.users?.find((item) => item.id === userId) : null;
+    userModalTitle.textContent = user ? 'Sửa tài khoản' : 'Tạo tài khoản';
+    if (userModalDescription) {
+        userModalDescription.textContent = user
+            ? 'Cập nhật tên đăng nhập, mật khẩu hoặc quyền truy cập.'
+            : 'Thêm thành viên và chọn quyền truy cập.';
+    }
+    managedUsername.value = user?.username || '';
+    managedRole.value = user?.role || 'user';
+    managedPassword.value = '';
+    managedPassword.required = !user;
+    managedPasswordHint.textContent = user ? 'Để trống nếu không đổi mật khẩu.' : 'Tối thiểu 1 ký tự.';
+    setFormMessage(userFormMessage, '');
+    saveUserBtn.querySelector('span:last-child').textContent = user ? 'Lưu thay đổi' : 'Tạo tài khoản';
+    userModal.style.display = 'grid';
+    userModal.setAttribute('aria-hidden', 'false');
+    window.setTimeout(() => managedUsername.focus(), 30);
+}
+
+function closeUserModal() {
+    if (!userModal) return;
+    userModal.style.display = 'none';
+    userModal.setAttribute('aria-hidden', 'true');
+    editingUserId = null;
+}
+
+async function onUserFormSubmit(event) {
+    event.preventDefault();
+    if (!managedUsername || !managedRole || !managedPassword || !saveUserBtn) return;
+
+    const isEditing = Boolean(editingUserId);
+    const payload = {
+        username: managedUsername.value.trim(),
+        role: managedRole.value,
+    };
+    if (!isEditing || managedPassword.value) payload.password = managedPassword.value;
+
+    saveUserBtn.disabled = true;
+    setFormMessage(userFormMessage, '');
+    try {
+        const endpoint = isEditing ? `/api/auth/users/${editingUserId}` : '/api/auth/register';
+        const method = isEditing ? 'PATCH' : 'POST';
+        const res = await api(endpoint, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Không lưu được tài khoản');
+        }
+
+        closeUserModal();
+        await loadUsers();
+        setFormMessage(usersFormMessage, isEditing ? 'Đã cập nhật tài khoản.' : 'Đã tạo tài khoản.', 'success');
+    } catch (err) {
+        setFormMessage(userFormMessage, err.message);
+    } finally {
+        saveUserBtn.disabled = false;
+    }
+}
+
+async function deleteUser(userId) {
+    const user = Array.isArray(state.users) ? state.users.find((item) => item.id === userId) : null;
+    if (!user || user.username === state.username) return;
+    if (!window.confirm(`Xóa tài khoản ${user.username}?`)) return;
+
+    try {
+        const res = await api(`/api/auth/users/${userId}`, { method: 'DELETE' });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Không xóa được tài khoản');
+        }
+        await loadUsers();
+        setFormMessage(usersFormMessage, 'Đã xóa tài khoản.', 'success');
+    } catch (err) {
+        setFormMessage(usersFormMessage, err.message);
+    }
+}
+
+changePasswordForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const currentPassword = $('#current-password')?.value || '';
+    const newPassword = $('#new-password')?.value || '';
+    const confirmPassword = $('#confirm-password')?.value || '';
+
+    setFormMessage(passwordFormMessage, '');
+    if (newPassword !== confirmPassword) {
+        setFormMessage(passwordFormMessage, 'Mật khẩu mới nhập lại không khớp.');
+        return;
+    }
+
+    changePasswordBtn.disabled = true;
+    try {
+        const res = await api('/api/auth/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.detail || 'Không đổi được mật khẩu');
+        }
+        changePasswordForm.reset();
+        setFormMessage(passwordFormMessage, 'Đã cập nhật mật khẩu.', 'success');
+    } catch (err) {
+        setFormMessage(passwordFormMessage, err.message);
+    } finally {
+        changePasswordBtn.disabled = false;
+    }
+});
+
+createUserBtn?.addEventListener('click', () => openUserModal());
+userForm?.addEventListener('submit', onUserFormSubmit);
+closeUserModalBtn?.addEventListener('click', closeUserModal);
+cancelUserModalBtn?.addEventListener('click', closeUserModal);
+userModal?.addEventListener('click', (event) => {
+    if (event.target instanceof HTMLElement && event.target.dataset.userModalClose === 'true') {
+        closeUserModal();
+    }
+});
 
 function sanitizeFilename(str) {
     return String(str || 'job')
@@ -1377,6 +1576,9 @@ function formatTime(ts) {
 }
 
 initSidebarUI();
+window.addEventListener('hashchange', () => {
+    setAppView(window.location.hash === '#settings' ? 'settings' : 'dashboard');
+});
 
 if (state.token) {
     showDashboard();
