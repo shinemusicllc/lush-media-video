@@ -1,11 +1,13 @@
 # CHANGELOG
 
 ### 2026-09-11 - Add role-based account settings
-- Added: admin and user permissions on top of the existing JWT auth flow; both roles keep normal video creation access and users only see their own jobs.
+- Added: admin and user permissions on top of the existing JWT auth flow; both roles keep normal video creation access in one shared web workspace.
 - Added: account settings with current-password verification, password change, admin-only user CRUD, and Admin/User role selection when creating or editing accounts.
 - Added: server-side protection for admin-only APIs and safeguards against removing or demoting the last admin account.
 - Refined: rebuilt Settings as one flat split workspace matching the dashboard palette, with rounded login-style fields and a consistent account modal.
 - Refined: removed the duplicate signed-in account summary, expanded the Settings surface to the dashboard margins, and changed Settings controls/icons to the neutral white-gray app treatment.
+- Changed: successful login now always opens the Dashboard workspace; Settings is opened only through its sidebar tab.
+- Changed: all authenticated accounts now share the same web job workspace, including job detail, output/workflow downloads, and terminal-job deletion; creator identity is retained for audit.
 ### 2026-08-25 - Harden slow reverse-tunnel uploads
 - Fixed: raised ComfyUI upload transfer timeout from 60 to 600 seconds, added one transport retry that reopens the input from byte zero, and kept an active worker `busy` during a transient health-probe timeout.
 - Changed: Windows tunnels now use `IPQoS=none`, bounded connection setup, and faster client keepalives; VPS `sshd` adds complementary server-side keepalives for stale reverse sessions.

@@ -41,3 +41,4 @@ Lush Media Video is a FastAPI app for submitting image + workflow jobs to ComfyU
 - Each GPU worker has a stable `gpuN` ID, its own SSH key and remote port; ComfyUI
   remains bound to `127.0.0.1` on the Windows host.
 - The scheduler must never assign a new job to an offline worker.
+- All authenticated web accounts share one job workspace; `username` and `user_id` remain provenance fields, not visibility boundaries.

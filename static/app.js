@@ -371,6 +371,7 @@ loginForm?.addEventListener('submit', async (e) => {
 
         const data = await res.json();
         saveAuth(data);
+        window.location.hash = '#dashboard';
         showDashboard();
     } catch (err) {
         if (loginError) {
@@ -1593,7 +1594,6 @@ if (state.token) {
 } else {
     showLogin();
 }
-
 
 
 

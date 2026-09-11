@@ -557,10 +557,9 @@ async def create_job(
 
 @app.get("/api/jobs")
 async def list_jobs(user: dict = Depends(get_current_user)):
-    if user["role"] == "admin":
-        jobs = await db.get_all_jobs(visibility="web")
-    else:
-        jobs = await db.get_user_jobs(user["username"], visibility="web")
+    # All authenticated accounts use the same web workspace. The creator
+    # username remains stored for audit/history, but does not scope visibility.
+    jobs = await db.get_all_jobs(visibility="web")
 
     result = []
     for j in jobs:
@@ -632,8 +631,6 @@ async def get_job(job_id: str, user: dict = Depends(get_current_user)):
     job = await db.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job không tồn tại")
-    if job["username"] != user["username"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Không có quyền")
     return job
 
 
@@ -643,8 +640,6 @@ async def delete_job(job_id: str, user: dict = Depends(get_current_user)):
     job = await db.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job không tồn tại")
-    if job["username"] != user["username"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Không có quyền")
     if job["status"] in ("running", "demo_running"):
         raise HTTPException(status_code=400, detail="Không thể xóa job đang tạo")
     removed_files = _delete_job_local_files(job)
@@ -660,7 +655,7 @@ async def clear_jobs(
 ):
     """
     Clear list jobs:
-    - scope=mine (default): clear current user jobs
+    - scope=mine (default): clear jobs in the shared web workspace
     - scope=all: admin only
     """
     scope = (scope or "mine").strip().lower()
@@ -689,9 +684,7 @@ async def clear_jobs(
             job = jobs_by_id.get(requested_id)
             if not job:
                 continue
-            if scope == "mine" and job["username"] != user["username"]:
-                continue
-            if user["role"] != "admin" and job["username"] != user["username"]:
+            if job.get("visibility", "web") != "web":
                 continue
             authorized_jobs.append(job)
 
@@ -736,7 +729,7 @@ async def clear_jobs(
     if scope == "all":
         jobs_to_clear = await db.get_all_jobs(limit=None, visibility="web")
     else:
-        jobs_to_clear = await db.get_user_jobs(user["username"], limit=None, visibility="web")
+        jobs_to_clear = await db.get_all_jobs(limit=None, visibility="web")
 
     skipped_active = [
         job["id"]
@@ -801,9 +794,6 @@ async def download_workflow(
     job = await db.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job khong ton tai")
-    if job["username"] != user["username"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Khong co quyen")
-
     workflow_name = (job.get("workflow_name") or "workflow.json").strip() or "workflow.json"
     if not workflow_name.lower().endswith(".json"):
         workflow_name += ".json"
@@ -843,8 +833,6 @@ async def download_video(
     job = await db.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job không tồn tại")
-    if job["username"] != user["username"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Không có quyền")
     if job["status"] != "done" or not job.get("output_info"):
         raise HTTPException(status_code=400, detail="Video chưa sẵn sàng")
 
@@ -912,8 +900,6 @@ async def download_image(
     job = await db.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job khong ton tai")
-    if job["username"] != user["username"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Khong co quyen")
     if job["status"] != "done" or not job.get("output_info"):
         raise HTTPException(status_code=400, detail="Anh chua san sang")
 
@@ -1034,8 +1020,6 @@ async def cancel_job(job_id: str, user: dict = Depends(get_current_user)):
     job = await db.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job không tồn tại")
-    if job["username"] != user["username"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Không có quyền")
     if job["status"] in ("done", "error", "cancelled"):
         raise HTTPException(status_code=400, detail="Job đã kết thúc")
 

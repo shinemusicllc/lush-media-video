@@ -468,12 +468,12 @@ class LoadBalancer:
                 del self._ws_clients[username]
 
     async def _broadcast(self, username: str, data: dict):
-        """Gửi update cho tất cả WS clients của user + admin."""
-        targets = set()
-        if username in self._ws_clients:
-            targets.update(self._ws_clients[username])
-        if "admin" in self._ws_clients and username != "admin":
-            targets.update(self._ws_clients["admin"])
+        """Gửi update cho mọi WS client trong shared web workspace."""
+        targets = {
+            client_queue
+            for client_queues in self._ws_clients.values()
+            for client_queue in client_queues
+        }
 
         for q in targets:
             try:
