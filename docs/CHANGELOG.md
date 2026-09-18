@@ -232,3 +232,4 @@
 ### 2026-09-18 - Restore VPS backup and data retention
 - Fixed: `backup_data.sh` now invokes `cleanup_data.py` through `PYTHON_BIN` instead of relying on an executable bit; production timer had failed with `Permission denied` before any retention step.
 - Safety: Retention remains seven days by default and prunes expired job data/archives before creating a fresh backup, so recovery runs do not require additional disk headroom.
+- Fixed: backup archive now uses an atomic `.partial` file and verifies a readable tar archive before promotion. A concurrent live upload may cause GNU tar's benign status `1`; its archive is accepted only after the readable-archive check, while other failures remove the partial file.

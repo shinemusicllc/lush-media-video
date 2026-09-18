@@ -33,6 +33,10 @@ The deploy module owns VPS Docker Compose runtime, helper scripts, systemd backu
   `python3`), not rely on its executable bit. Retention first removes expired
   job data and old archives, then creates the daily archive; this ordering keeps
   the VPS recoverable when disk space is tight.
+- Archive creation writes to a `.partial` path and promotes it only after tar
+  completes (or a live-file-change warning still produces a readable archive).
+  A failed tar therefore cannot leave a file that retention mistakes for a
+  completed backup.
 
 ## VPS Notes
 

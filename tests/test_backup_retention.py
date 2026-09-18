@@ -12,6 +12,10 @@ class BackupRetentionScriptTests(unittest.TestCase):
             script,
         )
         self.assertNotIn('DATA_RETENTION_DAYS="${DATA_RETENTION_DAYS}" "${SCRIPT_DIR}/cleanup_data.py"', script)
+        self.assertIn('ARCHIVE_PARTIAL="${ARCHIVE_FILE}.partial"', script)
+        self.assertIn('tar -czf "${ARCHIVE_PARTIAL}" -C "${DEPLOY_DIR}" data', script)
+        self.assertIn('tar -tzf "${ARCHIVE_PARTIAL}" >/dev/null', script)
+        self.assertIn('mv -f -- "${ARCHIVE_PARTIAL}" "${ARCHIVE_FILE}"', script)
 
 
 if __name__ == "__main__":
