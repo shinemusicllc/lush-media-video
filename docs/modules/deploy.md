@@ -29,6 +29,10 @@ The deploy module owns VPS Docker Compose runtime, helper scripts, systemd backu
   for a bounded grace window (`WATCHDOG_ACTIVE_FORWARD_GRACE_FAILURES`,
   default `3` timer passes), then cleans up if health still fails. It must never
   use a broad process kill.
+- `backup_data.sh` must invoke `cleanup_data.py` through `PYTHON_BIN` (default
+  `python3`), not rely on its executable bit. Retention first removes expired
+  job data and old archives, then creates the daily archive; this ordering keeps
+  the VPS recoverable when disk space is tight.
 
 ## VPS Notes
 

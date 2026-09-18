@@ -32,6 +32,7 @@
 | Giới hạn workflow được app chấp nhận ở tối đa 73 frame | Worker 128 GB có đủ headroom cho regular VAE 73 frame; workflow 5 giây hợp lệ phải giữ 61 frame thay vì bị kéo dài. Web, Telegram và prompt cuối cùng áp dụng cùng policy trước khi archive/submit. | Workflow reliability | 2026-07-30 |
 | Run GPU1 from a visible interactive launcher | A visible ComfyUI console lets an ordinary on-site operator inspect output and recover the worker by double-clicking one Desktop batch. The singleton supervisor/watchdog remains active, while the legacy `SYSTEM` task stays disabled to prevent duplicate runtimes. | GPU worker operations | 2026-07-30 |
 | Use VPS reverse-tunnel watchdog with worker self-reconnect | A stale server-side SSH child can hold a reverse port after the Windows-side tunnel disappears. Workers already detect a missing `ssh.exe` and retry; the VPS must safely release only the verified stale listener after repeated end-to-end probe failures. | GPU worker operations | 2026-08-03 |
+| Invoke retention cleanup via Python interpreter | `cleanup_data.py` lost its execute bit on the VPS, causing the daily backup timer to fail before it could prune expired uploads or archives. The wrapper now calls `PYTHON_BIN` explicitly, preserving the default seven-day policy and pruning before archive creation. | Storage operations | 2026-09-18 |
 
 ## GPU-004 - Guard visible workers with an interactive-user task
 

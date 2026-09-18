@@ -229,3 +229,6 @@
 - Cold và warm job 61 frame đều pass an toàn; RAM available thấp nhất lần lượt là 69.708 GiB và 77.548 GiB.
 - Xác nhận ComfyUI dùng khoảng 75–77 GiB private memory trong khi Codex chỉ đạt 1.262 GiB.
 - Dọn đúng stale VPS SSH child trên `18288`; supervisor GPU2 tự tạo tunnel mới và cả VPS host/app container đều health HTTP 200.
+### 2026-09-18 - Restore VPS backup and data retention
+- Fixed: `backup_data.sh` now invokes `cleanup_data.py` through `PYTHON_BIN` instead of relying on an executable bit; production timer had failed with `Permission denied` before any retention step.
+- Safety: Retention remains seven days by default and prunes expired job data/archives before creating a fresh backup, so recovery runs do not require additional disk headroom.
