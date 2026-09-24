@@ -27,8 +27,10 @@ The deploy module owns VPS Docker Compose runtime, helper scripts, systemd backu
   send `TERM` only to a verified `deploy`-owned `sshd` child after two failed
   checks and one immediate recheck. It preserves active forwarded connections
   for a bounded grace window (`WATCHDOG_ACTIVE_FORWARD_GRACE_FAILURES`,
-  default `3` timer passes), then cleans up if health still fails. It must never
-  use a broad process kill.
+  default `35` timer passes, about 35 minutes), then cleans up if health still
+  fails. This exceeds the default 30-minute job WebSocket deadline and the
+  10-minute image-upload timeout, so a slow health probe cannot cut off a
+  normally bounded active job. It must never use a broad process kill.
 - `backup_data.sh` must invoke `cleanup_data.py` through `PYTHON_BIN` (default
   `python3`), not rely on its executable bit. Retention first removes expired
   job data and old archives, then creates the daily archive; this ordering keeps

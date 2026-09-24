@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 2026-09-24 - Protect active jobs from reverse-tunnel cleanup
+- Changed: increased the VPS watchdog's active-forward grace from 3 to 35 timer passes, keeping slow in-flight uploads and job WebSockets alive through transient health-probe failures.
+- Scope: watchdog script only; production update does not restart the app container or either ComfyUI worker.
+
 ### 2026-09-11 - Add role-based account settings
 - Added: admin and user permissions on top of the existing JWT auth flow; both roles keep normal video creation access in one shared web workspace.
 - Added: account settings with current-password verification, password change, admin-only user CRUD, and Admin/User role selection when creating or editing accounts.

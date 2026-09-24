@@ -5,7 +5,8 @@ readonly -a ALLOWED_PORTS=(18188 18288)
 readonly STATE_DIR="${WATCHDOG_STATE_DIR:-/run/lush-media-reverse-tunnel-watchdog}"
 readonly GATEWAY="${WATCHDOG_GATEWAY:-172.19.0.1}"
 readonly FAILURE_THRESHOLD="${WATCHDOG_FAILURE_THRESHOLD:-2}"
-readonly ACTIVE_FORWARD_GRACE_FAILURES="${WATCHDOG_ACTIVE_FORWARD_GRACE_FAILURES:-3}"
+# Leave active job uploads and WebSockets time to outlast transient health-probe failures.
+readonly ACTIVE_FORWARD_GRACE_FAILURES="${WATCHDOG_ACTIVE_FORWARD_GRACE_FAILURES:-35}"
 readonly CURL_BIN="${WATCHDOG_CURL_BIN:-curl}"
 readonly SS_BIN="${WATCHDOG_SS_BIN:-ss}"
 readonly PS_BIN="${WATCHDOG_PS_BIN:-ps}"
