@@ -1,6 +1,8 @@
 import os
+import json
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -169,6 +171,65 @@ class BuildPromptPolicyTests(unittest.TestCase):
         self.assertNotIn("image", prompt["1"]["inputs"])
         self.assertEqual(["1", 0], prompt["2"]["inputs"]["start_image"])
         self.assertEqual("LoadImage", workflow["1"]["class_type"])
+
+    def test_build_prompt_replaces_universal_loader_and_maps_filename_prefix(self):
+        workflow = {
+            "140": {
+                "class_type": "UniversalImageLoader",
+                "inputs": {
+                    "image": "old.png",
+                    "use_upload": True,
+                    "image_path": "",
+                },
+            },
+            "82": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {"filename_prefix": ["140", 2]},
+            },
+            "95": {
+                "class_type": "WanFirstLastFrameToVideo",
+                "inputs": {"start_image": ["140", 0]},
+            },
+        }
+
+        prompt = build_prompt(
+            None,
+            workflow_data=workflow,
+            drive_url="https://drive.google.com/file/d/Abc_123-xyz/view",
+        )
+
+        self.assertEqual("LushLoadImageFromDrive", prompt["140"]["class_type"])
+        self.assertEqual(
+            {"drive_url": "https://drive.google.com/file/d/Abc_123-xyz/view"},
+            prompt["140"]["inputs"],
+        )
+        self.assertEqual(["140", 0], prompt["95"]["inputs"]["start_image"])
+        self.assertEqual("drive_image", prompt["82"]["inputs"]["filename_prefix"])
+        self.assertEqual("UniversalImageLoader", workflow["140"]["class_type"])
+
+    def test_drive_source_is_supported_by_fallback_and_every_bundled_preset(self):
+        workflow_root = Path(__file__).resolve().parents[1] / "workflows"
+        workflow_paths = [
+            workflow_root / "Jazz & lofi 6s Khong Loop.json",
+            *sorted((workflow_root / "presets").glob("*.json")),
+        ]
+        self.assertGreaterEqual(len(workflow_paths), 6)
+
+        for workflow_path in workflow_paths:
+            with self.subTest(workflow=workflow_path.name):
+                workflow = json.loads(workflow_path.read_text(encoding="utf-8-sig"))
+                prompt = build_prompt(
+                    None,
+                    workflow_data=workflow,
+                    drive_url="https://drive.google.com/file/d/Abc_123-xyz/view",
+                )
+                drive_nodes = [
+                    node
+                    for node in prompt.values()
+                    if isinstance(node, dict)
+                    and node.get("class_type") == "LushLoadImageFromDrive"
+                ]
+                self.assertEqual(1, len(drive_nodes))
 
 
 if __name__ == "__main__":

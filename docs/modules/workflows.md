@@ -7,10 +7,13 @@
 - `config.WORKFLOW_PRESET_DIR` supplies the five bundled presets in production.
 - Historical job workflows in `/data/workflows` are immutable runtime records
   and are not rewritten when bundled workflows change.
-- Drive-link jobs replace the first API `LoadImage` node at prompt-build time
-  with `LushLoadImageFromDrive`; the worker downloads and decodes the image
-  directly from Google Drive. The archived workflow remains the original JSON,
-  and the Drive file ID is stored separately on the job row.
+- Drive-link jobs replace the first API `LoadImage` or `UniversalImageLoader`
+  node at prompt-build time with `LushLoadImageFromDrive`; the worker downloads
+  and decodes the image directly from Google Drive. If the original
+  `UniversalImageLoader` output 2 feeds `filename_prefix`, prompt build replaces
+  that connection with `drive_image`; the custom node keeps its stable
+  `IMAGE`/`MASK` outputs. The archived workflow remains the original JSON, and
+  the Drive file ID is stored separately on the job row.
 
 ## Canonical Files
 

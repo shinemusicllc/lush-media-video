@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 2026-09-24 - Preserve UniversalImageLoader outputs for Drive jobs
+- Fixed: Drive prompt patching now handles the Jazz `UniversalImageLoader` as well as standard `LoadImage` nodes; its filename-prefix link is mapped to `drive_image` while the worker node keeps the existing two-output contract.
+- Added: regression coverage verifies input cleanup, output socket compatibility, and unchanged workflow links.
+
 ### 2026-09-24 - Fix Drive node installer for nested ComfyUI layouts
 - Fixed: installer now detects `ComfyUI/custom_nodes` inside portable GPU folders and keeps dependency installation in the matching embedded Python runtime.
 - Preserved: it still refuses installation when ComfyUI reports queued or running work and never restarts the worker automatically.

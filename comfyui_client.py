@@ -179,10 +179,11 @@ def build_prompt(
         )
 
     patched_image = False
+    drive_image_node_id = None
     seed_nodes = []
     filename_prefix_set = False
 
-    for node in prompt.values():
+    for node_id, node in prompt.items():
         if not isinstance(node, dict):
             continue
         inputs = node.get("inputs")
@@ -190,11 +191,15 @@ def build_prompt(
             continue
 
         if not patched_image and "image" in inputs and isinstance(inputs["image"], str):
-            if drive_url and node.get("class_type") == "LoadImage":
+            if drive_url and node.get("class_type") in {
+                "LoadImage",
+                "UniversalImageLoader",
+            }:
                 node["class_type"] = "LushLoadImageFromDrive"
-                inputs.pop("image", None)
+                inputs.clear()
                 inputs["drive_url"] = drive_url
                 patched_image = True
+                drive_image_node_id = str(node_id)
             elif not drive_url:
                 inputs["image"] = image_name
                 patched_image = True
@@ -214,7 +219,29 @@ def build_prompt(
             inputs["filename_prefix"] = f"{date_prefix}\\wan22"
             filename_prefix_set = True
 
+    if drive_image_node_id is not None:
+        for target_node in prompt.values():
+            target_inputs = target_node.get("inputs") if isinstance(target_node, dict) else None
+            if not isinstance(target_inputs, dict):
+                continue
+            for input_name, input_value in list(target_inputs.items()):
+                if (
+                    isinstance(input_value, (list, tuple))
+                    and len(input_value) >= 2
+                    and str(input_value[0]) == str(drive_image_node_id)
+                    and input_value[1] == 2
+                ):
+                    if input_name != "filename_prefix":
+                        raise ValueError(
+                            "Workflow dung output khong ho tro cua UniversalImageLoader"
+                        )
+                    target_inputs[input_name] = "drive_image"
+
     if not patched_image:
+        if drive_url:
+            raise ValueError(
+                "Workflow JSON khong tim thay node LoadImage hoac UniversalImageLoader cho link Drive"
+            )
         raise ValueError("Workflow JSON khong tim thay node input image")
 
     # Apply sequential seeds for all sampler nodes found in this workflow.
