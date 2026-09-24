@@ -42,6 +42,25 @@ If the gateway changes, update the worker `RemoteBindAddress` and all matching
   `deploy/windows/comfyui-worker-visible-guard.ps1`
 - Backend scheduler: `load_balancer.py`
 - ComfyUI WebSocket/history handling: `comfyui_client.py`
+- Optional Drive node installer: `deploy/windows/install-comfyui-drive-node.ps1`
+
+Install the Drive node separately on each worker while its ComfyUI queue is
+empty, then restart ComfyUI so the custom node is registered:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\deploy\windows\install-comfyui-drive-node.ps1 `
+  -ComfyDirectory 'D:\ComfyUI1'
+
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\deploy\windows\install-comfyui-drive-node.ps1 `
+  -ComfyDirectory 'D:\ComfyUI2'
+```
+
+The installer refuses to proceed when `/queue` reports running or pending
+items. It does not restart the worker; use the existing supervisor after the
+queue is empty. Drive jobs fail early with a worker-specific error if the node
+is not registered. Normal image uploads are unaffected.
 
 ## Key Files
 

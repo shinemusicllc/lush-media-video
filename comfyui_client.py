@@ -57,6 +57,19 @@ async def check_server(server_url: str, timeout: float = 5) -> bool:
         return False
 
 
+async def has_custom_node(server_url: str, node_type: str, timeout: float = 5) -> bool:
+    """Check whether a ComfyUI custom node is registered on a worker."""
+    try:
+        headers = _get_tunnel_headers()
+        async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
+            response = await client.get(f"{server_url}/object_info/{node_type}")
+            response.raise_for_status()
+            result = response.json()
+            return isinstance(result, dict) and node_type in result
+    except Exception:
+        return False
+
+
 # ── Upload ảnh ──────────────────────────────────────────────
 
 
@@ -129,9 +142,10 @@ async def upload_image(server_url: str, image_path: str, filename: str) -> str:
 
 
 def build_prompt(
-    image_name: str,
+    image_name: str | None,
     seed: int | None = None,
     workflow_data: dict | None = None,
+    drive_url: str | None = None,
 ) -> dict:
     """
     Load workflow JSON và patch input nodes.
@@ -147,6 +161,8 @@ def build_prompt(
 
     if not isinstance(prompt, dict) or not prompt:
         raise ValueError("Workflow JSON khong hop le")
+    if bool(image_name) == bool(drive_url):
+        raise ValueError("Cần chọn đúng một nguồn ảnh cho workflow")
 
     locked_model_updates = enforce_locked_diffusion_models(prompt)
     if locked_model_updates:
@@ -174,8 +190,14 @@ def build_prompt(
             continue
 
         if not patched_image and "image" in inputs and isinstance(inputs["image"], str):
-            inputs["image"] = image_name
-            patched_image = True
+            if drive_url and node.get("class_type") == "LoadImage":
+                node["class_type"] = "LushLoadImageFromDrive"
+                inputs.pop("image", None)
+                inputs["drive_url"] = drive_url
+                patched_image = True
+            elif not drive_url:
+                inputs["image"] = image_name
+                patched_image = True
 
         # Do not mutate prompt text nodes; prompt content must come from the workflow.
         if "width" in inputs:

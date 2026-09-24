@@ -32,6 +32,7 @@ async def init_db():
                 progress      INTEGER DEFAULT 0,
                 error_msg     TEXT,
                 input_image   TEXT    NOT NULL,
+                drive_file_id TEXT,
                 job_name      TEXT,
                 video_name    TEXT,
                 workflow_name TEXT,
@@ -51,6 +52,8 @@ async def init_db():
         # Backward-compatible migration for existing DBs.
         if not await _column_exists(conn, "jobs", "job_name"):
             await conn.execute("ALTER TABLE jobs ADD COLUMN job_name TEXT")
+        if not await _column_exists(conn, "jobs", "drive_file_id"):
+            await conn.execute("ALTER TABLE jobs ADD COLUMN drive_file_id TEXT")
         if not await _column_exists(conn, "jobs", "video_name"):
             await conn.execute("ALTER TABLE jobs ADD COLUMN video_name TEXT")
         if not await _column_exists(conn, "jobs", "workflow_name"):
@@ -185,15 +188,17 @@ async def create_job(
     source_user_id: str | None = None,
     telegram_chat_id: str | None = None,
     visibility: str = "web",
+    drive_file_id: str | None = None,
 ):
     async with aiosqlite.connect(DB_PATH) as conn:
         await conn.execute(
             """
             INSERT INTO jobs (
                 id, user_id, username, input_image, job_name, video_name, workflow_name,
-                workflow_file, source, source_user_id, telegram_chat_id, visibility
+                workflow_file, source, source_user_id, telegram_chat_id, visibility,
+                drive_file_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 job_id,
@@ -208,6 +213,7 @@ async def create_job(
                 source_user_id,
                 telegram_chat_id,
                 visibility,
+                drive_file_id,
             ),
         )
         await conn.commit()

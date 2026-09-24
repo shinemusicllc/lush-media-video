@@ -8,6 +8,7 @@
 | Run one independently supervised ComfyUI worker per Windows machine | A dual-GPU single host is one failure domain; independent hosts, SSH keys, reverse ports, and watchdogs let the remaining worker continue accepting jobs when one machine restarts or fails. The backend chooses only online workers, prefers idle workers, then uses queue depth and round-robin tie-breaking. | GPU scheduling and operations | 2026-07-29 |
 | Build VPS app only from clean Git commit | Dirty working trees made runtime code hard to trace; deploy now records `APP_COMMIT` and refuses dirty tracked builds. | Operations | 2026-05-20 |
 | Keep `deploy/data` outside source/build context | Runtime uploads, SQLite, workflows, and backups must not appear as untracked source or enter Docker images. | Operations | 2026-05-20 |
+| Fetch Google Drive image bytes on the selected ComfyUI worker | Avoid sending the full input image from VPS to ComfyUI through the reverse tunnel. A ComfyUI custom node downloads only HTTPS Drive share links, while the backend stores the file ID for queue recovery and redirects thumbnail requests to Drive. Both workers must install the node; ordinary uploads remain unchanged. | Worker networking + workflow ingress | 2026-09-24 |
 | FastAPI thay Flask         | Async, WS native, performance tốt hơn           | Backend core   | 2026-03-03 |
 | SQLite thay PostgreSQL     | Đơn giản, không cần setup, đủ cho scale nhỏ-vừa | Database       | 2026-03-03 |
 | JWT auth thay session      | Stateless, dễ scale, WS compatible              | Auth           | 2026-03-03 |

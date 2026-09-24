@@ -24,7 +24,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 
 import config
 import database as db
@@ -47,6 +47,7 @@ from models import (
 import httpx
 from load_balancer import balancer
 import comfyui_client
+from drive_links import google_drive_file_id
 from telegram_bot import telegram_bot_service
 from workflow_guard import (
     enforce_locked_diffusion_models,
@@ -452,32 +453,46 @@ async def download_workflow_preset(preset_name: str, user: dict = Depends(get_cu
 
 @app.post("/api/jobs")
 async def create_job(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    drive_link: str = Form(""),
     job_name: str = Form(""),
     video_name: str = Form(""),
     workflow_file: UploadFile | None = File(None),
     user: dict = Depends(get_current_user),
 ):
-    # Validate
-    if not file.content_type or not file.content_type.startswith("image/"):
+    drive_link = (drive_link or "").strip()
+    has_file = bool(file and file.filename)
+    drive_file_id = google_drive_file_id(drive_link) if drive_link else None
+    if has_file == bool(drive_link):
+        raise HTTPException(
+            status_code=400,
+            detail="Chọn một nguồn ảnh: tải file lên hoặc nhập link Google Drive",
+        )
+    if drive_link and not drive_file_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Link Google Drive không hợp lệ hoặc không phải link chia sẻ file",
+        )
+    if has_file and (not file.content_type or not file.content_type.startswith("image/")):
         raise HTTPException(status_code=400, detail="Chỉ chấp nhận file ảnh")
 
-    # Lưu file
     job_id = str(uuid.uuid4())
-    ext = Path(file.filename).suffix or ".jpg"
-    safe_filename = f"{job_id}{ext}"
-    save_path = os.path.join(config.UPLOAD_DIR, safe_filename)
-
-    content = await file.read()
-    with open(save_path, "wb") as f:
-        f.write(content)
+    safe_filename = ""
+    save_path = ""
+    if has_file:
+        ext = Path(file.filename).suffix or ".jpg"
+        safe_filename = f"{job_id}{ext}"
+        save_path = os.path.join(config.UPLOAD_DIR, safe_filename)
+        content = await file.read()
+        with open(save_path, "wb") as f:
+            f.write(content)
 
     raw_job_name = (job_name or "").strip() or (video_name or "").strip()
     clean_job_name = raw_job_name
     if len(clean_job_name) > 120:
         raise HTTPException(status_code=400, detail="Ten job toi da 120 ky tu")
     if not clean_job_name:
-        original_stem = Path(file.filename or "").stem.strip()
+        original_stem = Path(file.filename or "").stem.strip() if file else ""
         clean_job_name = original_stem[:120] if original_stem else f"job_{job_id[:8]}"
 
     workflow_data = None
@@ -537,6 +552,7 @@ async def create_job(
         username=user["username"],
         image_path=save_path,
         image_filename=safe_filename,
+        drive_file_id=drive_file_id,
         job_name=clean_job_name,
         workflow_name=workflow_name,
         workflow_file=workflow_archive_file,
@@ -1071,6 +1087,14 @@ async def get_thumbnail(job_id: str):
     job = await db.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404)
+    drive_file_id = job.get("drive_file_id")
+    if drive_file_id and google_drive_file_id(
+        f"https://drive.google.com/file/d/{drive_file_id}/view"
+    ):
+        return RedirectResponse(
+            f"https://drive.google.com/thumbnail?id={drive_file_id}&sz=w1200",
+            headers={"Cache-Control": "private, max-age=3600"},
+        )
     image_path = os.path.join(config.UPLOAD_DIR, job["input_image"])
     if not os.path.exists(image_path):
         raise HTTPException(status_code=404)

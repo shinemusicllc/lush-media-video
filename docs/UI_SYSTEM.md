@@ -19,6 +19,10 @@
 
 - Keep controls compact and dense; avoid oversized decorative dashboard patterns.
 - Buttons use existing `.btn`, `.btn-ghost`, `.btn-sm`, and `.btn-accent` styles.
+- Image sources in the creator panel are exclusive: choosing a local image
+  disables the Drive link input; entering a Drive link disables the drop zone.
+- The Drive input uses the compact `.creator-input` shape and a clear icon; the
+  link must be shared with anyone who has the link.
 - Modals should use a simple backdrop, centered panel, and direct controls.
 - Settings and account-modal inputs use the login form shape: 46px height, 12px radius, charcoal fill, gray border, and green focus ring.
 - Vietnamese UI text must remain UTF-8 and avoid all-caps transformations for long strings.

@@ -16,6 +16,7 @@ const state = {
     currentPageJobs: [],
     ws: null,
     selectedFile: null,
+    isSubmittingJob: false,
     selectedWorkflowFile: null,
     currentPage: 1,
     jobsView: localStorage.getItem('jobsView') === 'grid' ? 'grid' : 'list',
@@ -41,6 +42,8 @@ const dropEmpty = $('#drop-zone-empty');
 const dropPreview = $('#drop-zone-preview');
 const previewImg = $('#preview-img');
 const removeBtn = $('#remove-img');
+const driveLinkInput = $('#drive-link-input');
+const driveLinkClearBtn = $('#drive-link-clear');
 const submitBtn = $('#submit-btn');
 const jobNameInput = $('#job-name-input');
 const workflowInput = $('#workflow-input');
@@ -592,9 +595,13 @@ document.addEventListener('click', (e) => {
 
 // Upload
 if (dropZone && fileInput && removeBtn && submitBtn) {
-    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('click', () => {
+        if (driveLinkInput?.value.trim() || state.isSubmittingJob) return;
+        fileInput.click();
+    });
 
     dropZone.addEventListener('dragover', (e) => {
+        if (driveLinkInput?.value.trim() || state.isSubmittingJob) return;
         e.preventDefault();
         dropZone.classList.add('dragover');
     });
@@ -604,6 +611,7 @@ if (dropZone && fileInput && removeBtn && submitBtn) {
     });
 
     dropZone.addEventListener('drop', (e) => {
+        if (driveLinkInput?.value.trim() || state.isSubmittingJob) return;
         e.preventDefault();
         dropZone.classList.remove('dragover');
         const files = e.dataTransfer.files;
@@ -612,6 +620,14 @@ if (dropZone && fileInput && removeBtn && submitBtn) {
 
     fileInput.addEventListener('change', () => {
         if (fileInput.files.length > 0) selectFile(fileInput.files[0]);
+    });
+
+    driveLinkInput?.addEventListener('input', updateImageSourceUI);
+
+    driveLinkClearBtn?.addEventListener('click', () => {
+        if (driveLinkInput) driveLinkInput.value = '';
+        updateImageSourceUI();
+        driveLinkInput?.focus();
     });
 
     workflowChooseBtn?.addEventListener('mouseenter', openWorkflowModal);
@@ -648,15 +664,21 @@ if (dropZone && fileInput && removeBtn && submitBtn) {
     });
 
     submitBtn.addEventListener('click', async () => {
-        if (!state.selectedFile) return;
+        const driveLink = driveLinkInput?.value.trim() || '';
+        if (!state.selectedFile && !driveLink) return;
 
-        submitBtn.disabled = true;
+        state.isSubmittingJob = true;
+        updateImageSourceUI();
         submitBtn.querySelector('span:last-of-type').textContent = 'Đang gửi...';
         submitBtn.querySelector('.spinner').style.display = '';
 
         try {
             const formData = new FormData();
-            formData.append('file', state.selectedFile);
+            if (state.selectedFile) {
+                formData.append('file', state.selectedFile);
+            } else {
+                formData.append('drive_link', driveLink);
+            }
             const jobName = jobNameInput?.value.trim() || '';
             if (jobName) formData.append('job_name', jobName);
             if (state.selectedWorkflowFile) {
@@ -670,28 +692,32 @@ if (dropZone && fileInput && removeBtn && submitBtn) {
             }
 
             clearFile();
+            if (driveLinkInput) driveLinkInput.value = '';
             if (jobNameInput) jobNameInput.value = '';
         } catch (err) {
             alert(`Lỗi: ${err.message}`);
         } finally {
+            state.isSubmittingJob = false;
             submitBtn.querySelector('span:last-of-type').textContent = 'Tạo video';
             submitBtn.querySelector('.spinner').style.display = 'none';
-            submitBtn.disabled = !state.selectedFile;
+            updateImageSourceUI();
         }
     });
 
     updateWorkflowUI();
+    updateImageSourceUI();
 }
 
 function selectFile(file) {
     state.selectedFile = file;
+    updateImageSourceUI();
 
     const reader = new FileReader();
     reader.onload = (e) => {
         previewImg.src = e.target.result;
         dropEmpty.style.display = 'none';
         dropPreview.style.display = '';
-        submitBtn.disabled = false;
+        updateImageSourceUI();
     };
     reader.readAsDataURL(file);
 }
@@ -703,7 +729,25 @@ function clearFile() {
 
     dropEmpty.style.display = '';
     dropPreview.style.display = 'none';
-    submitBtn.disabled = true;
+    updateImageSourceUI();
+}
+
+function updateImageSourceUI() {
+    const hasDriveLink = Boolean(driveLinkInput?.value.trim());
+    const hasLocalFile = Boolean(state.selectedFile);
+    const sourceLocked = hasDriveLink || state.isSubmittingJob;
+
+    dropZone?.classList.toggle('drive-source-active', hasDriveLink);
+    dropZone?.setAttribute('aria-disabled', String(sourceLocked));
+    if (fileInput) fileInput.disabled = sourceLocked;
+    if (driveLinkInput) driveLinkInput.disabled = hasLocalFile || state.isSubmittingJob;
+    if (driveLinkClearBtn) {
+        driveLinkClearBtn.hidden = !hasDriveLink;
+        driveLinkClearBtn.disabled = state.isSubmittingJob;
+    }
+    if (submitBtn) {
+        submitBtn.disabled = state.isSubmittingJob || (!hasLocalFile && !hasDriveLink);
+    }
 }
 
 function updateHeroStats() {
@@ -1594,6 +1638,4 @@ if (state.token) {
 } else {
     showLogin();
 }
-
-
 

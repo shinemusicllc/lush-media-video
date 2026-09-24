@@ -7,6 +7,10 @@
 - `config.WORKFLOW_PRESET_DIR` supplies the five bundled presets in production.
 - Historical job workflows in `/data/workflows` are immutable runtime records
   and are not rewritten when bundled workflows change.
+- Drive-link jobs replace the first API `LoadImage` node at prompt-build time
+  with `LushLoadImageFromDrive`; the worker downloads and decodes the image
+  directly from Google Drive. The archived workflow remains the original JSON,
+  and the Drive file ID is stored separately on the job row.
 
 ## Canonical Files
 
@@ -83,3 +87,6 @@ python -m unittest tests.test_workflow_vae_config tests.test_workflow_guard -v
   equivalent measured headroom.
 - Preserve per-job seed randomization so sampler-dependent cleanup nodes are
   not skipped by ComfyUI cache.
+- Install `deploy/comfyui_nodes/lush_drive_image` on both Windows workers before
+  accepting Drive jobs. Links must be HTTPS Google Drive file links shared with
+  “Anyone with the link”; the worker rejects non-images and files over 64 MiB.

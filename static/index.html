@@ -217,6 +217,31 @@
                             </div>
                         </div>
 
+                        <div class="drive-link-source">
+                            <label for="drive-link-input">Upload bằng link Google Drive</label>
+                            <div class="drive-link-control">
+                                <input
+                                    type="url"
+                                    id="drive-link-input"
+                                    class="creator-input"
+                                    placeholder="Dán link Drive vào đây"
+                                    autocomplete="off"
+                                    spellcheck="false"
+                                >
+                                <button
+                                    class="btn btn-ghost btn-sm drive-link-clear"
+                                    id="drive-link-clear"
+                                    type="button"
+                                    title="Xóa link Drive"
+                                    aria-label="Xóa link Drive"
+                                    hidden
+                                >
+                                    <span class="material-symbols-rounded">close</span>
+                                </button>
+                            </div>
+                            <p class="drive-link-hint">Cần bật quyền “Bất kỳ ai có đường liên kết”.</p>
+                        </div>
+
                         <div class="input-group compact-group">
                             <label for="job-name-input">Tên job</label>
                             <input

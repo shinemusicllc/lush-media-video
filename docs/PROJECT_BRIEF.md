@@ -14,6 +14,9 @@ Lush Media Video is a FastAPI app for submitting image + workflow jobs to ComfyU
 - Windows GPU workers: one ComfyUI instance per physical machine, supervised by
   `deploy/windows/comfyui-worker-supervisor.ps1` and exposed to the VPS through
   a dedicated reverse SSH port.
+- `deploy/comfyui_nodes/lush_drive_image/` provides an optional worker-side
+  Google Drive image loader; Drive jobs send only a shared file ID through the
+  backend and fetch image bytes directly from Google on the selected GPU.
 - Telegram ingress and completion notifications: `telegram_bot.py`
 - VPS compose stack: `deploy/docker-compose.vps.yml`
 - VPS persistent runtime data: `deploy/data/` mounted to `/data`
@@ -41,4 +44,6 @@ Lush Media Video is a FastAPI app for submitting image + workflow jobs to ComfyU
 - Each GPU worker has a stable `gpuN` ID, its own SSH key and remote port; ComfyUI
   remains bound to `127.0.0.1` on the Windows host.
 - The scheduler must never assign a new job to an offline worker.
+- Google Drive jobs require `LushLoadImageFromDrive` on both workers; local
+  image uploads continue to use ComfyUI's standard image upload endpoint.
 - All authenticated web accounts share one job workspace; `username` and `user_id` remain provenance fields, not visibility boundaries.

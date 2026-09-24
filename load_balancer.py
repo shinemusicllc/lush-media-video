@@ -161,6 +161,7 @@ class LoadBalancer:
         source_user_id: str | None = None,
         telegram_chat_id: str | None = None,
         visibility: str = "web",
+        drive_file_id: str | None = None,
     ):
         """Submit a new job, preferring online servers with shorter queues."""
         async with self._lock:
@@ -173,6 +174,7 @@ class LoadBalancer:
             user_id,
             username,
             image_filename,
+            drive_file_id=drive_file_id,
             job_name=job_name,
             workflow_name=workflow_name,
             workflow_file=workflow_file,
@@ -188,6 +190,7 @@ class LoadBalancer:
                 "job_id": job_id,
                 "image_path": image_path,
                 "image_filename": image_filename,
+                "drive_file_id": drive_file_id,
                 "username": username,
                 "workflow_data": workflow_data,
             }
@@ -254,12 +257,15 @@ class LoadBalancer:
 
     def _build_job_payload(self, job: dict) -> dict | None:
         image_filename = job.get("input_image")
-        if not image_filename:
-            return None
-
-        image_path = os.path.join(config.UPLOAD_DIR, image_filename)
-        if not os.path.exists(image_path):
-            return None
+        drive_file_id = job.get("drive_file_id")
+        if drive_file_id:
+            image_path = ""
+        else:
+            if not image_filename:
+                return None
+            image_path = os.path.join(config.UPLOAD_DIR, image_filename)
+            if not os.path.exists(image_path):
+                return None
 
         workflow_data = None
         workflow_file = (job.get("workflow_file") or "").strip()
@@ -273,6 +279,7 @@ class LoadBalancer:
             "job_id": job["id"],
             "image_path": image_path,
             "image_filename": image_filename,
+            "drive_file_id": drive_file_id,
             "username": job["username"],
             "workflow_data": workflow_data,
         }
@@ -340,11 +347,25 @@ class LoadBalancer:
                 prompt_id = job_data.get("existing_prompt_id")
 
                 if not prompt_id:
-                    image_name = await comfyui_client.upload_image(
-                        server.url,
-                        job_data["image_path"],
-                        job_data["image_filename"],
-                    )
+                    drive_file_id = job_data.get("drive_file_id")
+                    if drive_file_id:
+                        if not await comfyui_client.has_custom_node(
+                            server.url, "LushLoadImageFromDrive"
+                        ):
+                            raise RuntimeError(
+                                f"{server.name} chưa cài node tải ảnh Google Drive."
+                            )
+                        image_name = None
+                        drive_url = (
+                            f"https://drive.google.com/file/d/{drive_file_id}/view"
+                        )
+                    else:
+                        image_name = await comfyui_client.upload_image(
+                            server.url,
+                            job_data["image_path"],
+                            job_data["image_filename"],
+                        )
+                        drive_url = None
 
                     job_check = await db.get_job(job_id)
                     if job_check and job_check["status"] == "cancelled":
@@ -354,6 +375,7 @@ class LoadBalancer:
                     prompt = comfyui_client.build_prompt(
                         image_name,
                         workflow_data=job_data.get("workflow_data"),
+                        drive_url=drive_url,
                     )
 
                     prompt_id = await comfyui_client.queue_prompt(

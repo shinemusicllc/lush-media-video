@@ -143,6 +143,33 @@ class BuildPromptPolicyTests(unittest.TestCase):
         self.assertEqual(73, prompt["2"]["inputs"]["length"])
         self.assertEqual(85, workflow["2"]["inputs"]["length"])
 
+    def test_build_prompt_replaces_load_image_with_drive_loader(self):
+        workflow = {
+            "1": {
+                "class_type": "LoadImage",
+                "inputs": {"image": "old.png"},
+            },
+            "2": {
+                "class_type": "WanFirstLastFrameToVideo",
+                "inputs": {"length": 73, "start_image": ["1", 0], "end_image": ["1", 0]},
+            },
+        }
+
+        prompt = build_prompt(
+            None,
+            workflow_data=workflow,
+            drive_url="https://drive.google.com/file/d/Abc_123-xyz/view",
+        )
+
+        self.assertEqual("LushLoadImageFromDrive", prompt["1"]["class_type"])
+        self.assertEqual(
+            "https://drive.google.com/file/d/Abc_123-xyz/view",
+            prompt["1"]["inputs"]["drive_url"],
+        )
+        self.assertNotIn("image", prompt["1"]["inputs"])
+        self.assertEqual(["1", 0], prompt["2"]["inputs"]["start_image"])
+        self.assertEqual("LoadImage", workflow["1"]["class_type"])
+
 
 if __name__ == "__main__":
     unittest.main()

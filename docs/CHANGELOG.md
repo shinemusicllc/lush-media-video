@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 2026-09-24 - Add direct Google Drive image source
+- Added: job creation accepts either one local image upload or one shared Google Drive file link; selecting one source disables the other, and Drive jobs keep a Drive-backed thumbnail.
+- Added: ComfyUI worker node downloads Drive images directly with retries, a 64 MiB limit, and image validation; additive SQLite migration persists file IDs for queued-job recovery.
+- Required: install the node on both Windows workers and restart each ComfyUI only when its queue is empty; local file uploads are unchanged.
+
 ### 2026-09-24 - Protect active jobs from reverse-tunnel cleanup
 - Changed: increased the VPS watchdog's active-forward grace from 3 to 35 timer passes, keeping slow in-flight uploads and job WebSockets alive through transient health-probe failures.
 - Scope: watchdog script only; production update does not restart the app container or either ComfyUI worker.
