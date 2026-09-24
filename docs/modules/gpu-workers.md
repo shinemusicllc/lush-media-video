@@ -60,7 +60,9 @@ powershell -NoProfile -ExecutionPolicy Bypass `
 The installer refuses to proceed when `/queue` reports running or pending
 items. It does not restart the worker; use the existing supervisor after the
 queue is empty. Drive jobs fail early with a worker-specific error if the node
-is not registered. Normal image uploads are unaffected.
+is not registered. It detects both a direct ComfyUI root and the portable
+layout where `ComfyUI/` is nested under the supplied directory, while using the
+portable Python runtime for `gdown`. Normal image uploads are unaffected.
 
 ## Key Files
 

@@ -5,17 +5,37 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $ComfyDirectory = [System.IO.Path]::GetFullPath($ComfyDirectory)
-$Python = Join-Path $ComfyDirectory 'python_embeded\python.exe'
 $ComfyQueueUrl = 'http://127.0.0.1:8188/queue'
 $SourceDirectory = Join-Path $PSScriptRoot '..\comfyui_nodes\lush_drive_image'
-$TargetDirectory = Join-Path $ComfyDirectory 'custom_nodes\lush_drive_image'
 
 if (-not (Test-Path -LiteralPath $ComfyDirectory -PathType Container)) {
     throw "ComfyUI directory does not exist: $ComfyDirectory"
 }
-if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
-    throw "Portable ComfyUI Python was not found: $Python"
+
+$NestedComfyDirectory = Join-Path $ComfyDirectory 'ComfyUI'
+if (Test-Path -LiteralPath (Join-Path $ComfyDirectory 'main.py') -PathType Leaf) {
+    $ComfyRoot = $ComfyDirectory
+} elseif (Test-Path -LiteralPath (Join-Path $NestedComfyDirectory 'main.py') -PathType Leaf) {
+    $ComfyRoot = $NestedComfyDirectory
+} else {
+    $ComfyRoot = $null
 }
+if (-not $ComfyRoot) {
+    throw "Could not find main.py in the supplied directory or its ComfyUI subdirectory: $ComfyDirectory"
+}
+
+$PythonCandidates = @(
+    (Join-Path $ComfyDirectory 'python_embeded\python.exe'),
+    (Join-Path $ComfyRoot 'python_embeded\python.exe'),
+    (Join-Path (Split-Path $ComfyRoot -Parent) 'python_embeded\python.exe')
+) | Select-Object -Unique
+$Python = $PythonCandidates | Where-Object {
+    Test-Path -LiteralPath $_ -PathType Leaf
+} | Select-Object -First 1
+if (-not $Python) {
+    throw "Portable ComfyUI Python was not found under: $ComfyDirectory"
+}
+$TargetDirectory = Join-Path $ComfyRoot 'custom_nodes\lush_drive_image'
 if (-not (Test-Path -LiteralPath (Join-Path $SourceDirectory 'drive_image_loader.py') -PathType Leaf)) {
     throw "Drive node source is missing: $SourceDirectory"
 }
@@ -42,4 +62,5 @@ Copy-Item -LiteralPath (Join-Path $SourceDirectory '__init__.py') -Destination $
 Copy-Item -LiteralPath (Join-Path $SourceDirectory 'drive_image_loader.py') -Destination $TargetDirectory -Force
 
 Write-Host "Installed LushLoadImageFromDrive into $TargetDirectory"
+Write-Host "Using ComfyUI Python at $Python"
 Write-Host 'Restart ComfyUI after all running and queued jobs have finished.'

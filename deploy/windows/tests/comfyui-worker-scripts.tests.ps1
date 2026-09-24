@@ -12,6 +12,7 @@ $installerPath = Join-Path $PSScriptRoot "..\install-comfyui-worker-task.ps1"
 $visibleInstallerPath = Join-Path $PSScriptRoot "..\install-comfyui-worker-visible-launcher.ps1"
 $visibleLauncherPath = Join-Path $PSScriptRoot "..\start-comfyui-worker-visible.bat"
 $visibleGuardPath = Join-Path $PSScriptRoot "..\comfyui-worker-visible-guard.ps1"
+$driveInstallerPath = Join-Path $PSScriptRoot "..\install-comfyui-drive-node.ps1"
 $examplePath = Join-Path $PSScriptRoot "..\worker.example.json"
 
 foreach ($path in @(
@@ -20,6 +21,7 @@ foreach ($path in @(
     $visibleInstallerPath,
     $visibleLauncherPath,
     $visibleGuardPath,
+    $driveInstallerPath,
     $examplePath
 )) {
     Assert-True (Test-Path -LiteralPath $path -PathType Leaf) "required worker asset $path"
@@ -29,7 +31,8 @@ foreach ($path in @(
     $supervisorPath,
     $installerPath,
     $visibleInstallerPath,
-    $visibleGuardPath
+    $visibleGuardPath,
+    $driveInstallerPath
 )) {
     $tokens = $null
     $errors = $null
@@ -79,6 +82,11 @@ Assert-True ($visibleGuard.Contains("Stop-IdleOrphanComfy")) "guard scopes idle 
 Assert-True ($visibleGuard.Contains("Starting a new visible worker window")) "guard relaunches visible window"
 Assert-True ($visibleGuard.Contains("-WindowStyle Normal")) "guard opens a normal visible window"
 Assert-True ($visibleGuard.Contains('"call"')) "guard supports quoted batch paths with spaces"
+
+$driveInstaller = Get-Content -LiteralPath $driveInstallerPath -Raw
+Assert-True ($driveInstaller.Contains("`$ComfyDirectory 'ComfyUI'")) "Drive installer detects a nested ComfyUI folder"
+Assert-True ($driveInstaller.Contains("`$ComfyRoot 'custom_nodes\lush_drive_image'")) "Drive node targets the detected ComfyUI root"
+Assert-True ($driveInstaller.Contains("Split-Path `$ComfyRoot -Parent")) "Drive installer finds portable Python beside nested ComfyUI"
 
 $visibleLauncher = Get-Content -LiteralPath $visibleLauncherPath -Raw
 Assert-True ($visibleLauncher.Contains("-Interactive")) "visible launcher selects interactive mode"

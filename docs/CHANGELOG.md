@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 2026-09-24 - Fix Drive node installer for nested ComfyUI layouts
+- Fixed: installer now detects `ComfyUI/custom_nodes` inside portable GPU folders and keeps dependency installation in the matching embedded Python runtime.
+- Preserved: it still refuses installation when ComfyUI reports queued or running work and never restarts the worker automatically.
+
 ### 2026-09-24 - Add direct Google Drive image source
 - Added: job creation accepts either one local image upload or one shared Google Drive file link; selecting one source disables the other, and Drive jobs keep a Drive-backed thumbnail.
 - Added: ComfyUI worker node downloads Drive images directly with retries, a 64 MiB limit, and image validation; additive SQLite migration persists file IDs for queued-job recovery.
